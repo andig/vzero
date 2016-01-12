@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>VZero (vzero-[esp8266])</title>
+	<meta content="text/html;charset=utf8" http-equiv="Content-Type">
+	<link rel="shortcut icon" href="favicon.ico" />
+	<link rel="stylesheet" href="css/foundation.min.css">
+
+	<style>
+	html, body, [type="text"] {
+		color: #666;
+	}
+	header {
+		width: 100%;
+		padding: 23px 0 19px 0;
+		margin-bottom: 10px;
+		color: #FFF;
+		background-color: #0292C0;
+		border-bottom: 1px solid #047A96;
+	}
+	header p {
+		margin: 5px 0 0 0;
+	}
+	</style>
+</head>
+<body>
+	<header>
+		<div class="column row state-always">
+			<a href="http://volkszaehler.org"><img class="logo" src="img/logo_white.png" alt="volkszaehler.org"></a>
+			<p class="show-for-medium">VZERO - The wireless zero-config controller by volkszaehler.org</p>
+		</div>
+	</header>
+
+	<div class="column row">
+		<h4>Status</h4>
+
+		<div class="row">
+			<div class="medium-2 small-4 columns">Type:</div>
+			<div class="medium-10 small-8 columns type">Infrared S0</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">Version:</div>
+			<div class="medium-10 small-8 columns">[build]</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">Uptime:</div>
+			<div class="medium-10 small-8 columns uptime">[uptime]</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">WiFi:</div>
+			<div class="medium-10 small-8 columns wifimode">[wifimode]</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">IP Address:</div>
+			<div class="medium-10 small-8 columns">[ip]</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">Free Memory:</div>
+			<div class="medium-2 small-8 columns heap">[heap]</div>
+			<div class="medium-8 hide-for-small-only columns spark"></div>
+		</div>
+		<p></p>
+		<form action="/restart" method="POST">
+			<input type="submit" class="button" value="Restart">
+		</form>
+		<hr/>
+	</div>
+
+
+	<div class="column row">
+		<h4>Data</h4>
+
+		<div class="row">
+			<div class="medium-2 small-4 columns">Middleware:</div>
+			<div class="medium-10 small-8 columns middleware">[middleware]</div>
+		</div>
+		<div class="row">
+			<div class="medium-2 small-4 columns">UUID:</div>
+			<div class="medium-10 small-8 columns uuid">[uuid]</div>
+		</div>
+		<p></p>
+		<form action="/update" method="POST">
+			<input type="submit" class="button" value="Update">
+			<input type="submit" class="button" value="Register Controller">
+			<input type="submit" class="button alert" value="Delete Controller">
+		</form>
+		<hr/>
+	</div>
+
+	<div class="column row hide state-initial-wifi">
+		<h2>Welcome to VZero</h2>
+		<p>Congratulations - you've successfully started your device!</p>
+		<p>Your VZero device was not yet able to connect to a WiFi network and is currently running as Access Point.
+		Please configure WiFi credentials below and restart the device.</p>
+		<p>After restarting the device will connect to the specified WLAN network and should be accessible under this address: <a href="http://vzero-[esp8266].local">vzero-[esp8266].local</a>.</p>
+		<p>To access the device you will have to connect to the same WLAN network as the VZero.</p>
+		<!-- <span class="success label">Step 1</span> -->
+		<p></p>
+		<p></p>
+	</div>
+
+	<div class="column row state-always">
+		<h4>WLAN Configuration</h4>
+		<form action="/set" method="GET">
+			<div class="row">
+				<div class="medium-2 small-12 columns">SSID:</div>
+				<div class="medium-10 small-12 columns"><input type="text" name="ssid" value="[ssid]"/></div>
+			</div>
+			<div class="row">
+				<div class="medium-2 small-12 columns">Password:</div>
+				<div class="medium-10 small-12 columns"><input type="text" name="pass" value="[pass]"/></div>
+			</div>
+			<div class="row">
+				<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
+				<div class="medium-10 hide-for-small-only columns">Note: Setting new WiFi credentials will restart the controller.</div>
+			</div>
+			<p></p>
+		</form>
+		<p></p>
+	</div>
+
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script>window.jQuery || document.write('<script src="js/jquery-2.1.4.min.js"><\/script>')</script>
+<script src="js/sparkline.js"></script>
+
+<script type="text/javascript">
+	var apicall = 0,
+		sparkdata = [],
+		sparkline;
+
+	function updateStatus(json) {
+		// [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
+		console.log(json);
+		if (true || json["resetcode"] >= 1 && json["resetcode"] <= 3) {
+
+		}
+
+		var heap = json["heap"];
+		if (heap > 1024) {
+			heap = Math.round(heap / 1024) + 'kB';
+		}
+		$(".heap").text(heap);
+
+		var date = json["uptime"] / 1000;
+		var hours = parseInt(date / 3600) % 24;
+		var min = parseInt(date / 60) % 60;
+		var sec = Math.round(date % 60);
+		$(".uptime").text((hours < 10 ? "0" + hours : hours) + ":" + (min < 10 ? "0" + min : min) + ":" + (sec  < 10 ? "0" + sec : sec));
+
+		sparkdata.push(json["heap"]);
+		if (sparkdata.length > 50) {
+			sparkdata.shift();
+		}
+		sparkline.draw(sparkdata);
+	}
+
+	$(document).ready(function() {
+		sparkline = new Sparkline($(".spark")[0], {
+			height: 30,
+			width: $(".spark").width(),
+			lineColor: "#666",
+			endColor: "#0292C0",
+			min: 0
+		});
+
+		if ($(".wifimode").text() == "Access Point") {
+		// if ($(".wifimode").text() != "Connected") {
+			$(".column.row:not(.state-always)").addClass("hide");
+			$(".state-initial-wifi").removeClass("hide");
+		}
+
+		var parser = document.createElement('a');
+		parser.href = $(".middleware").val();
+
+		parser.protocol; // => "http:"
+		parser.hostname; // => "example.com"
+		parser.port;     // => "3000"
+		parser.pathname; // => "/pathname/"
+		parser.search;   // => "?search=test"
+		parser.hash;     // => "#hash"
+		parser.host;     // => "example.com:3000"
+
+		window.setInterval(function() {
+			// avoid overloading esp
+			if (apicall > 0) {
+				return;
+			}
+			apicall++;
+			$.getJSON('/api/status').done(function(json) {
+				apicall--;
+				updateStatus(json);
+			})
+			.fail(function() {
+				apicall--;
+				sparkdata.push(Math.random(1));
+				if (sparkdata.length > 50) {
+					sparkdata.shift();
+				}
+				sparkline.draw(sparkdata);
+			});
+		}, 1000);
+	});
+</script>
+</body>
+</html>
