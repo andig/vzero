@@ -12,9 +12,17 @@ public:
   static Plugin* get(byte idx);
   
   Plugin();
-  ~Plugin();
+  virtual ~Plugin();
+  virtual String getName();
+  virtual int8_t getSensors();
+  virtual int8_t getSensorByAddr(const char* addr_c);
+  virtual bool getAddr(char* addr_c, int8_t sensor);
+  virtual bool getUuid(char* uuid_c, int8_t sensor);
+  virtual bool setUuid(const char* uuid_c, int8_t sensor);
+  virtual float getValue(int8_t sensor);
+  virtual void getPluginJson(JsonObject* json);
+  virtual void getSensorJson(JsonObject* json, int8_t sensor);
   virtual void loop();
-  virtual void getData(JsonObject* json);
 
 protected:
   long _timestamp;

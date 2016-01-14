@@ -15,6 +15,7 @@
 struct DeviceStruct {
   DeviceAddress addr;
   char uuid[UUID_LENGTH];
+  float val;
 };
 
 
@@ -25,8 +26,16 @@ public:
   static void strToAddr(const char* ptr, uint8_t* addr);
 
   OneWirePlugin(byte pin);
-  void loop();
-  void getData(JsonObject* json);
+  String getName() override;
+  int8_t getSensors() override;
+  int8_t getSensorByAddr(const char* addr_c) override;
+  bool getAddr(char* addr_c, int8_t sensor) override;
+  bool getUuid(char* uuid_c, int8_t sensor) override;
+  bool setUuid(const char* uuid_c, int8_t sensor) override;
+  float getValue(int8_t sensor) override;
+  void getPluginJson(JsonObject* json) override;
+  void getSensorJson(JsonObject* json, int8_t sensor) override;
+  void loop() override;
 
 private:
   OneWire ow;

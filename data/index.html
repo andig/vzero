@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>VZero (vzero-[esp8266])</title>
+	<title>VZero ([esp8266])</title>
 	<meta content="text/html;charset=utf8" http-equiv="Content-Type">
 	<link rel="shortcut icon" href="favicon.ico" />
 	<link rel="stylesheet" href="css/foundation.min.css">
@@ -128,6 +128,22 @@
 		sparkdata = [],
 		sparkline;
 
+	function initializeUI() {
+		sparkline = new Sparkline($(".spark")[0], {
+			height: 30,
+			width: $(".spark").width(),
+			lineColor: "#666",
+			endColor: "#0292C0",
+			min: 0
+		});
+
+		if ($(".wifimode").text() == "Access Point") {
+		// if ($(".wifimode").text() != "Connected") {
+			$(".column.row:not(.state-always)").addClass("hide");
+			$(".state-initial-wifi").removeClass("hide");
+		}
+	}
+
 	function updateStatus(json) {
 		// [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
 		console.log(json);
@@ -154,20 +170,28 @@
 		sparkline.draw(sparkdata);
 	}
 
-	$(document).ready(function() {
-		sparkline = new Sparkline($(".spark")[0], {
-			height: 30,
-			width: $(".spark").width(),
-			lineColor: "#666",
-			endColor: "#0292C0",
-			min: 0
-		});
-
-		if ($(".wifimode").text() == "Access Point") {
-		// if ($(".wifimode").text() != "Connected") {
-			$(".column.row:not(.state-always)").addClass("hide");
-			$(".state-initial-wifi").removeClass("hide");
+	function heartBeat() {
+		// avoid overloading esp
+		if (apicall > 0) {
+			return;
 		}
+		apicall++;
+		$.getJSON('/api/status').done(function(json) {
+			apicall--;
+			updateStatus(json);
+		})
+		.fail(function() {
+			apicall--;
+			sparkdata.push(Math.random(1));
+			if (sparkdata.length > 50) {
+				sparkdata.shift();
+			}
+			sparkline.draw(sparkdata);
+		});
+	}
+
+	$(document).ready(function() {
+		initializeUI();
 
 		var parser = document.createElement('a');
 		parser.href = $(".middleware").val();
@@ -180,25 +204,8 @@
 		parser.hash;     // => "#hash"
 		parser.host;     // => "example.com:3000"
 
-		window.setInterval(function() {
-			// avoid overloading esp
-			if (apicall > 0) {
-				return;
-			}
-			apicall++;
-			$.getJSON('/api/status').done(function(json) {
-				apicall--;
-				updateStatus(json);
-			})
-			.fail(function() {
-				apicall--;
-				sparkdata.push(Math.random(1));
-				if (sparkdata.length > 50) {
-					sparkdata.shift();
-				}
-				sparkline.draw(sparkdata);
-			});
-		}, 1000);
+		heartBeat();
+		window.setInterval(heartBeat, 10000);
 	});
 </script>
 </body>

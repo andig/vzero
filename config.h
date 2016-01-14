@@ -14,7 +14,7 @@
 #define PLUGIN_ONEWIRE
 
 // plugin settings
-#define ONEWIRE_PIN 2
+#define ONEWIRE_PIN 14
 
 #define BUILD "0.1"   // version
 

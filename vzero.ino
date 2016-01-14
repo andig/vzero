@@ -9,7 +9,6 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <FS.h>
-#include <ArduinoJson.h>
 
 #include "config.h"
 #include "webserver.h"
@@ -37,10 +36,10 @@ void validateFlash()
   Serial.printf("Flash free: %u\n", ESP.getFreeSketchSpace());
 
   if (ideSize != realSize) {
-      Serial.println(F("Flash configuration wrong!\n"));
+    Serial.println(F("Flash configuration wrong!\n"));
   }
   else {
-      Serial.println(F("Flash configuration ok.\n"));
+    Serial.println(F("Flash configuration ok.\n"));
   }
 }
 
@@ -50,7 +49,7 @@ void validateFlash()
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("\nBooting...");
+  Serial.println(F("\nBooting..."));
   Serial.printf("Chip ID:    %05X\n", ESP.getChipId());
 
   // set hostname
@@ -126,7 +125,7 @@ void setup()
     else {
       Serial.print(F("mDNS responder started at "));
       Serial.print(net_hostname);
-      Serial.println(".local");
+      Serial.println(F(".local"));
     }
   }
   else {
@@ -166,13 +165,13 @@ void setup()
   ArduinoOTA.begin();
 #endif
 
-  // start webserver
-  webserver_start();
-
   // start plugins
 #ifdef PLUGIN_ONEWIRE
   new OneWirePlugin(ONEWIRE_PIN);
 #endif
+
+  // start webserver after plugins
+  webserver_start();
 }
 
 uint8_t pluginIndex = 0;
@@ -182,20 +181,22 @@ uint8_t pluginIndex = 0;
  */
 void loop()
 {
+  // handle Webserver requests
+  g_server.handleClient();
+
 #ifdef OTA_SERVER
   // handle OTA requests
   ArduinoOTA.handle();
 #endif
 
-  // handle Webserver requests
-  g_server.handleClient();
-  yield();
-
   // call plugin's loop method
   if (pluginIndex < Plugin::count()) {
+/*
     Serial.print(F("vzero::loop plugin #"));
     Serial.print(pluginIndex);
     Serial.println();
+*/
+    delay(500);
     Plugin::get(pluginIndex)->loop();
   }
   else {

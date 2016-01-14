@@ -7,21 +7,85 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 
-// required for rst_info
-extern "C" {
-#include <user_interface.h>
-}
-
 #include "config.h"
 #include "webserver.h"
 #include "urlfunctions.h"
 #include "Plugin.h"
 
+// required for rst_info
+extern "C" {
+#include <user_interface.h>
+}
+
+
+#define CACHE_HEADER "max-age=86400"
 
 // Webserver handle on port 80
 ESP8266WebServer g_server(80);
 
 unsigned long g_restartTime = 0;
+
+
+class PluginRequestHandler : public RequestHandler {
+public:
+  PluginRequestHandler(const char* uri, Plugin* plugin, const int8_t sensor) : _uri(uri), _plugin(plugin), _sensor(sensor)
+  {
+  }
+
+  bool canHandle(HTTPMethod requestMethod, String requestUri) override {
+    Serial.print("PluginRequestHandler::canHandle ");
+    Serial.println(requestMethod);
+    if (requestMethod != HTTP_GET && requestMethod != HTTP_POST)
+      return false;
+    if (!requestUri.startsWith(_uri))
+      return false;
+    return true;
+  }
+
+  bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
+    Serial.print("PluginRequestHandler::handle ");
+    Serial.println(requestUri);
+    
+    if (!canHandle(requestMethod, requestUri))
+      return false;
+
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+    int res = 400; // JSON error
+
+    // GET
+    if (requestMethod == HTTP_GET && server.args() == 0) {
+      float val = _plugin->getValue(_sensor);
+      if (val != NAN) {
+        json["value"] = val;
+        res = 200;
+      }
+    }
+    // POST
+    else if ((requestMethod == HTTP_POST && server.args() == 1 && server.argName(0) == "uuid")
+      || (requestMethod == HTTP_GET && server.args() == 1 && server.argName(0) == "uuid")) {
+      String uuid = server.arg(0);
+      Serial.println("calling setuuid");
+      if (_plugin->setUuid(uuid.c_str(), _sensor)) {
+        Serial.println("calling getsensorjson");
+        _plugin->getSensorJson(&json, _sensor);
+        res = 200;
+      }
+    }
+    
+    char buffer[200];
+    json.printTo(buffer, sizeof(buffer));
+    server.send(res, "application/json", buffer);
+    
+    return true;
+  }
+
+protected:
+  String _uri;
+  Plugin* _plugin;
+  int8_t _sensor;
+};
+
 
 String getIP()
 {
@@ -29,24 +93,24 @@ String getIP()
   return String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
 }
 
-void restart()
+void requestRestart()
 {
   g_restartTime = millis() + 100;
 }
 
 void g_debug()
 {
-  Serial.print("uri: ");
+  Serial.print(F("uri: "));
   Serial.print(g_server.uri());
   Serial.print(" ");
   Serial.println(g_server.args());
 }
 
-void jsonResponse(JsonVariant json)
+void jsonResponse(JsonVariant json, int res)
 {
   char buffer[512];
   json.printTo(buffer, sizeof(buffer));
-  g_server.send(200, "application/json", buffer);
+  g_server.send(res, "application/json", buffer);
 }
 
 /**
@@ -84,7 +148,7 @@ void handleRoot()
 /**
  * Handle set request from http server.
  */
-void handleSetWlan()
+void handleSettings()
 {
   g_debug();
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
@@ -93,23 +157,25 @@ void handleSetWlan()
     
   // Check arguments
   if (g_server.args() != 2) {
-    g_server.send(400, "text/plain", F("Invalid number of arguments\n\n"));
+    g_server.send(400, F("text/plain"), F("Bad request\n\n"));
     return;
   }
 
+  String arg;
   String ssid = "";
   String pass = "";
   int result = 400;
 
   // read ssid and psk
   for (uint8_t i = 0; i < g_server.args(); i++) {
+    arg = urldecode(g_server.arg(i));
+    arg.trim();
+    
     if (g_server.argName(i) == "ssid") {
-      ssid = urldecode(g_server.arg(i));
-      ssid.trim();
+      ssid = arg;
     }
     else if (g_server.argName(i) == "pass") {
-      pass = urldecode(g_server.arg(i));
-      pass.trim();
+      pass = arg;
     }
   }
 
@@ -136,7 +202,7 @@ void handleSetWlan()
   g_server.send(result, "text/html", resp);
 
   if (result == 200) {
-    restart(); 
+    requestRestart(); 
   }
 }
 
@@ -160,7 +226,7 @@ void handleGetStatus()
   json["resetcode"] = resetInfo->reason;
   
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
-  jsonResponse(json);
+  jsonResponse(json, 200);
 }
 
 /**
@@ -198,7 +264,7 @@ void handleGetWlan()
     Serial.println("");
   }
 
-  jsonResponse(json);
+  jsonResponse(json, 200);
 */
 }
 
@@ -208,22 +274,17 @@ void handleGetWlan()
 void handleGetPlugins()
 {
   g_debug();
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<512> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
-  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    Serial.print(F("vzero::loop plugin #"));
-    Serial.print(pluginIndex);
-    Serial.println();
-
-    JsonObject& plugin = json.createNestedObject();
-
-    // call plugin's loop method
-
-    Plugin::get(pluginIndex++)->getData(&plugin);
+  for (int8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
+    JsonObject& obj = json.createNestedObject();
+    Plugin* plugin = Plugin::get(pluginIndex);
+    obj["name"] = plugin->getName();
+    plugin->getPluginJson(&obj);
   }
   
-  jsonResponse(json);
+  jsonResponse(json, 200);
 }
 
 /**
@@ -248,13 +309,43 @@ void serveStaticDir(String path)
     File file = dir.openFile("r");
     Serial.print(F("Static: "));
     Serial.println(file.name());
-    g_server.serveStatic(file.name(), SPIFFS, file.name());
+    g_server.serveStatic(file.name(), SPIFFS, file.name(), CACHE_HEADER);
     file.close();
-/*
-    Serial.print("Static: ");
+/*    
+    Serial.print(F("Static: "));
     Serial.println(dir.fileName());
-    g_server.serveStatic(dir.fileName(), SPIFFS, dir.fileName());
+    g_server.serveStatic(dir.fileName(), SPIFFS, dir.fileName(), "max-age=86400");
 */
+  }
+}
+
+/** 
+ * Setup handlers for each plugin and sensor 
+ * Structure is /api/<plugin>/<sensor>
+ */
+void registerPlugins()
+{
+  Serial.println(F("registerPlugins"));
+  
+  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
+    Plugin* plugin = Plugin::get(pluginIndex++);
+    Serial.print(pluginIndex);
+    Serial.print(" ");
+    Serial.println(plugin->getName());
+
+    String baseUri = "/api/";
+    baseUri += plugin->getName();
+    baseUri += "/";
+
+    for  (int8_t sensor=0; sensor<plugin->getSensors(); sensor++) {
+      String uri = String(baseUri);
+      char addr_c[20];
+      plugin->getAddr(addr_c, sensor);
+      uri += addr_c;
+      Serial.println(uri);
+
+      g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
+    }
   }
 }
 
@@ -266,8 +357,17 @@ void webserver_start()
   g_server.on("/", handleRoot);
   g_server.on("/index.html", handleRoot);
 
+  // static
+  g_server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico", CACHE_HEADER);
+  serveStaticDir("/img");
+  serveStaticDir("/js");
+  serveStaticDir("/css");
+
+  // not found
+  g_server.onNotFound(handleNotFound);
+
   // GET
-  g_server.on("/set", HTTP_GET, handleSetWlan);
+  g_server.on("/set", HTTP_GET, handleSettings);
 
   // POST
   g_server.on("/restart", HTTP_POST, []() {
@@ -275,22 +375,16 @@ void webserver_start()
     resp += net_hostname;
     resp += F(".local/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>");
     g_server.send(200, "text/html", resp);
-    restart();
+    requestRestart();
   });
 
-  // api functions
+  // general api
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/wlan", HTTP_GET, handleGetWlan);
   g_server.on("/api/plugin", HTTP_GET, handleGetPlugins);
 
-  // static
-  g_server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico");
-  serveStaticDir("/img");
-  serveStaticDir("/js");
-  serveStaticDir("/css");
-
-  // not found
-  g_server.onNotFound(handleNotFound);
+  // sensor api
+  registerPlugins();
 
   // Start server
   g_server.begin();
