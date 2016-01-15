@@ -14,14 +14,10 @@ const char* ap_default_ssid = "VZERO";
 // hostname prefix
 String net_hostname = "vzero";
 
-// global WiFi SSID
+// global settings
 String g_ssid = "";
-
-// global WiFi PSK
 String g_pass = "";
-
-// hostname prefix
-String middleware = "http://demo.volkszaehler.org/middleware.php";
+String g_middleware = MIDDLEWARE;
 
 
 /**
@@ -30,9 +26,9 @@ String middleware = "http://demo.volkszaehler.org/middleware.php";
  * @param pass String pointer for storing PSK.
  * @return True or False.
  */
-bool loadConfig(String *ssid, String *pass)
+bool loadConfig(String *ssid, String *pass, String *middleware)
 {
-  File configFile = SPIFFS.open("/config.json", "r");
+  File configFile = SPIFFS.open(F("/config.json"), "r");
   size_t size = configFile.size();
 
   // Allocate a buffer to store contents of the file
@@ -44,12 +40,20 @@ bool loadConfig(String *ssid, String *pass)
   JsonObject& json = jsonBuffer.parseObject(buf.get());
   *ssid = json["ssid"].asString();
   *pass = json["password"].asString();
+  *middleware = json["middleware"].asString();
 
-  Serial.println(F("-- Stored WiFi config --"));
-  Serial.print("SSID:   ");
+  if (*middleware == "") {
+    *middleware = MIDDLEWARE;
+  }
+
+  Serial.println(F("-- Stored config --"));
+  Serial.print(F("SSID:   "));
   Serial.println(*ssid);
-  Serial.print("PSK:    ");
+  Serial.print(F("PSK:    "));
   Serial.println(*pass);
+  Serial.print(F("MW:     "));
+  Serial.println(*middleware);
+  Serial.println();
   
   return true;
 }
@@ -60,10 +64,10 @@ bool loadConfig(String *ssid, String *pass)
  * @param pass PSK as string pointer,
  * @return True or False.
  */
-bool saveConfig(String *ssid, String *pass)
+bool saveConfig(String *ssid, String *pass, String *middleware)
 {
   // Open config file for writing
-  File configFile = SPIFFS.open("/config.json", "w");
+  File configFile = SPIFFS.open(F("/config.json"), "w");
   if (!configFile) {
     Serial.println(F("Failed to open config file for writing"));
     return false;
@@ -73,6 +77,7 @@ bool saveConfig(String *ssid, String *pass)
   JsonObject& json = jsonBuffer.createObject();
   json["ssid"] = *ssid;
   json["password"] = *pass;
+  json["middleware"] = *middleware;
 
   json.printTo(configFile);
   configFile.close();

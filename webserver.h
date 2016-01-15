@@ -9,6 +9,7 @@ extern ESP8266WebServer g_server;
 
 // Restart will be triggert on this time
 extern unsigned long g_restartTime;
+extern int g_otaInProgress;
 
 /**
  * @brief Read WiFi connection information from file system.

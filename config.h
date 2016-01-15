@@ -4,11 +4,14 @@
 
 #include <WString.h>
 
-/**
+/*
  * Defines
  */
 #define OTA_SERVER
 #define DEBUG
+
+// global settings
+#define MIDDLEWARE "http://demo.volkszaehler.org/middleware.php"
 
 // included plugins
 #define PLUGIN_ONEWIRE
@@ -27,11 +30,10 @@ extern const char* ap_default_psk;  // Default PSK
 
 extern String net_hostname;
 
-// global WiFi SSID
+// global settings
 extern String g_ssid;
-
-// global WiFi PSK
 extern String g_pass;
+extern String g_middleware;
 
-bool loadConfig(String *ssid, String *pass);
-bool saveConfig(String *ssid, String *pass);
+bool loadConfig(String *ssid, String *pass, String *middleware);
+bool saveConfig(String *ssid, String *pass, String *middleware);

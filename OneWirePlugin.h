@@ -44,7 +44,9 @@ private:
   DeviceStruct devices[MAX_SENSORS];
   int8_t devs;
 
+  bool saveConfig();
   int8_t getSensorIndex(const uint8_t* addr);
+  int8_t addSensor(const uint8_t* addr);
   void setupSensors();
   void readTemperatures();
 };

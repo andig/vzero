@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <FS.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -33,7 +34,7 @@ unsigned long hex2int(const char *a, unsigned int len)
 }
 
 bool OneWirePlugin::addrCompare(const uint8_t* a, const uint8_t* b) {
-  for (int8_t i = 0; i < sizeof(DeviceAddress); ++i) {
+  for (uint8_t i=0; i<7; i++) {
     if (a[i] != b[i]) {
       return(false);
     }
@@ -42,7 +43,7 @@ bool OneWirePlugin::addrCompare(const uint8_t* a, const uint8_t* b) {
 }
 
 void OneWirePlugin::addrToStr(char* ptr, const uint8_t* addr) {
-  for (uint8_t b=0; b<8; b++) {
+  for (uint8_t b=0; b<7; b++) {
     sprintf(ptr, "%02X", addr[b]);
     ptr += 2;
     if (b == 0) {
@@ -53,11 +54,10 @@ void OneWirePlugin::addrToStr(char* ptr, const uint8_t* addr) {
 }
 
 void OneWirePlugin::strToAddr(const char* ptr, uint8_t* addr) {
-  uint8_t b = 0;
-  while (b < sizeof(DeviceAddress)) {
-    addr[b++] = (uint8_t)hex2int(ptr, 2);
+  for (uint8_t b=0; b<7; b++) {
+    addr[b] = (uint8_t)hex2int(ptr, 2);
     ptr += 2;
-    if (b == 1 && *ptr == '-') {
+    if (b == 0 && *ptr == '-') {
       ptr++; // hyphen after first hex number
     }
   }
@@ -69,10 +69,37 @@ void OneWirePlugin::strToAddr(const char* ptr, uint8_t* addr) {
  */
 
 OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&ow) {
-  Serial.println(F("Looking for 1-Wire devices..."));
+  File configFile = SPIFFS.open(F("/1wire.config"), "r");
+  if (configFile.size() == sizeof(devices)) {
+    Serial.println(F("Reading config file."));
+    configFile.read(&devices[0].addr[0], sizeof(devices));
+  
+    // find first empty device slot
+    DeviceAddress addr = {};
+    char addr_c[20];
+    addrToStr(addr_c, addr);
+    devs = getSensorByAddr(addr_c) + 1;
+    Serial.printf("Got %u devices from config.\n", devs);
+  }
+  configFile.close();
+
+  int8_t devsConfigured = devs;
+
   // locate devices on the bus
+  Serial.println(F("Looking for 1-Wire devices..."));
   sensors.begin();
+  sensors.setWaitForConversion(false);
   setupSensors();
+
+  // found new devices?
+  if (devsConfigured != devs) {
+    Serial.println(F("New devices found, saving config."));
+    saveConfig();
+  }
+
+  // report parasite power
+  Serial.print(F("Parasite power is: "));
+  Serial.println((sensors.isParasitePowerMode()) ? F("on") : F("off"));
 }
 
 String OneWirePlugin::getName() {
@@ -115,6 +142,7 @@ bool OneWirePlugin::setUuid(const char* uuid_c, int8_t sensor) {
   if (strlen(devices[sensor].uuid) > 0 && strlen(uuid_c) > 0) // erase before update
     return false;
   strcpy(devices[sensor].uuid, uuid_c);
+  saveConfig();
   return true;
 }
 
@@ -150,17 +178,18 @@ void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
   (*json)["value"] = devices[sensor].val;
 }
 
+/**
+ * Loop (idle -> requesting -> reading)
+ */
 void OneWirePlugin::loop() {
-  // plugin states: idle -> requesting -> reading
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD)) {
-    Serial.println(F("1wire: request temp"));
+//    Serial.println(F("1wire: request temp"));
     _status = PLUGIN_REQUESTING;
 
-    sensors.setWaitForConversion(false);
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
-    Serial.println(F("1wire: read temp"));
+//    Serial.println(F("1wire: read temp"));
     _status = PLUGIN_READING;
 
     readTemperatures();
@@ -169,28 +198,58 @@ void OneWirePlugin::loop() {
 }
 
 void OneWirePlugin::setupSensors() {
-  Serial.println(F("OneWirePlugin::setupSensors"));
-
-  devs = sensors.getDeviceCount();
   Serial.print(F("Found "));
-  Serial.print(devs);
+  Serial.print(sensors.getDeviceCount());
   Serial.println(F(" devices."));
 
-  // report parasite power requirements
-  Serial.print(F("Parasite power is: "));
-  Serial.println((sensors.isParasitePowerMode()) ? F("on") : F("off"));
-
-  for (int i=0; i<sensors.getDeviceCount(); i++) {
-    if (sensors.getAddress(devices[i].addr, i)) {
+  DeviceAddress addr;
+  for (int8_t i=0; i<sensors.getDeviceCount(); i++) {
+    if (sensors.getAddress(addr, i)) {
       char addr_c[20];
-      addrToStr(&addr_c[0], devices[i].addr);
+      addrToStr(&addr_c[0], addr);
       Serial.print(F("Found device: "));
-      Serial.println(addr_c);
+      Serial.print(addr_c);
+      Serial.print(" ");
+
+      int8_t sensorIndex = getSensorIndex(addr);
+      if (sensorIndex >= 0) {
+        Serial.println(F("(known)"));
+      }
+      else {
+        Serial.println(F("(new)"));
+        sensorIndex = addSensor(addr);
+/*
+        if (sensorIndex >= 0) {
+          Serial.print(F("Added device "));
+          Serial.println(addr_c);
+          Serial.printf("New device at index %i\n", sensorIndex);
+        }
+*/
+      }
 
       // set precision
-      sensors.setResolution(devices[i].addr, TEMPERATURE_PRECISION);
+      sensors.setResolution(addr, TEMPERATURE_PRECISION);
     }
   }
+
+  for (int8_t i=0; i<devs; i++) {
+    devices[i].val = NAN;
+  }
+}
+
+/*
+ * Private
+ */
+bool OneWirePlugin::saveConfig() {
+  File configFile = SPIFFS.open(F("/1wire.config"), "w");
+  if (!configFile) {
+    Serial.println(F("Failed to open config file for writing"));
+    return false;
+  }
+  
+  configFile.write(&devices[0].addr[0], sizeof(devices));
+  configFile.close();
+  return true;
 }
 
 int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
@@ -202,8 +261,19 @@ int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
   return(-1);
 }
 
+int8_t OneWirePlugin::addSensor(const uint8_t* addr) {
+  if (devs >= MAX_SENSORS) {
+    Serial.println(F("Too many devices"));
+    return -1;
+  }
+  for (uint8_t i=0; i<8; i++) {
+    devices[devs].addr[i] = addr[i];
+  }
+  return(devs++);
+}
+
 void OneWirePlugin::readTemperatures() {
-  for (int i=0; i<devs; i++) {
+  for (int8_t i=0; i<devs; i++) {
     devices[i].val = sensors.getTempC(devices[i].addr);
     yield();
 

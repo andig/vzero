@@ -24,12 +24,12 @@ extern "C" {
 ESP8266WebServer g_server(80);
 
 unsigned long g_restartTime = 0;
+int g_otaInProgress = 0;
 
 
 class PluginRequestHandler : public RequestHandler {
 public:
-  PluginRequestHandler(const char* uri, Plugin* plugin, const int8_t sensor) : _uri(uri), _plugin(plugin), _sensor(sensor)
-  {
+  PluginRequestHandler(const char* uri, Plugin* plugin, const int8_t sensor) : _uri(uri), _plugin(plugin), _sensor(sensor) {
   }
 
   bool canHandle(HTTPMethod requestMethod, String requestUri) override {
@@ -98,12 +98,25 @@ void requestRestart()
   g_restartTime = millis() + 100;
 }
 
-void g_debug()
+void debug()
 {
   Serial.print(F("uri: "));
   Serial.print(g_server.uri());
   Serial.print(" ");
   Serial.println(g_server.args());
+}
+
+bool getUrlParam(String arg, String *value)
+{
+  *value = "";
+  for (uint8_t i = 0; i < g_server.args(); i++) {
+    if (g_server.argName(i) == arg) {
+      *value = urldecode(g_server.arg(i));
+      value->trim();
+      return true;
+    }
+  }
+  return false;
 }
 
 void jsonResponse(JsonVariant json, int res)
@@ -118,7 +131,7 @@ void jsonResponse(JsonVariant json, int res)
  */
 void handleRoot()
 {
-  g_debug();
+  debug();
   String indexHTML = F("<!DOCTYPE html><html><head><title>File not found</title></head><body><h1>File not found.</h1></body></html>");
 
   File indexFile = SPIFFS.open(F("/index.html"), "r");
@@ -138,6 +151,7 @@ void handleRoot()
     indexHTML.replace("[uptime]", buff);
     indexHTML.replace("[ssid]", g_ssid);
     indexHTML.replace("[pass]", g_pass);
+    indexHTML.replace("[middleware]", g_middleware);
     indexHTML.replace("[wifimode]", (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point");
     indexHTML.replace("[ip]", getIP());
   }
@@ -150,13 +164,13 @@ void handleRoot()
  */
 void handleSettings()
 {
-  g_debug();
+  debug();
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
   resp += net_hostname;
   resp += F(".local/\"></head><body>");
     
   // Check arguments
-  if (g_server.args() != 2) {
+  if (g_server.args() != 3) {
     g_server.send(400, F("text/plain"), F("Bad request\n\n"));
     return;
   }
@@ -164,6 +178,7 @@ void handleSettings()
   String arg;
   String ssid = "";
   String pass = "";
+  String middleware = "";
   int result = 400;
 
   // read ssid and psk
@@ -177,17 +192,21 @@ void handleSettings()
     else if (g_server.argName(i) == "pass") {
       pass = arg;
     }
+    else if (g_server.argName(i) == "middleware") {
+      middleware = arg;
+    }
   }
 
   // check ssid and psk
   if (ssid != "") {
     // save ssid and psk to file
-    if (saveConfig(&ssid, &pass)) {
+    if (saveConfig(&ssid, &pass, &middleware)) {
       // store SSID and PSK into global variables.
       g_ssid = ssid;
       g_pass = pass;
+      g_middleware = middleware;
 
-      resp += F("Success");
+      resp += F("Success.");
       result = 200; // HTTP OK
     }
     else {
@@ -211,7 +230,7 @@ void handleSettings()
  */
 void handleGetStatus()
 {
-  g_debug();
+  debug();
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
 
@@ -224,6 +243,7 @@ void handleGetStatus()
   // [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
   rst_info* resetInfo = ESP.getResetInfoPtr();
   json["resetcode"] = resetInfo->reason;
+  json["ota"] = g_otaInProgress;
   
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
   jsonResponse(json, 200);
@@ -235,7 +255,7 @@ void handleGetStatus()
 void handleGetWlan()
 {
 /*
-  g_debug();
+  debug();
   StaticJsonBuffer<200> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -273,7 +293,7 @@ void handleGetWlan()
  */
 void handleGetPlugins()
 {
-  g_debug();
+  debug();
   StaticJsonBuffer<512> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -325,18 +345,16 @@ void serveStaticDir(String path)
  */
 void registerPlugins()
 {
-  Serial.println(F("registerPlugins"));
-  
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     Plugin* plugin = Plugin::get(pluginIndex++);
-    Serial.print(pluginIndex);
-    Serial.print(" ");
+    Serial.print(F("Registering "));
     Serial.println(plugin->getName());
 
     String baseUri = "/api/";
     baseUri += plugin->getName();
     baseUri += "/";
 
+    // register one handler per sensor
     for  (int8_t sensor=0; sensor<plugin->getSensors(); sensor++) {
       String uri = String(baseUri);
       char addr_c[20];
@@ -367,7 +385,7 @@ void webserver_start()
   g_server.onNotFound(handleNotFound);
 
   // GET
-  g_server.on("/set", HTTP_GET, handleSettings);
+  g_server.on("/settings", HTTP_GET, handleSettings);
 
   // POST
   g_server.on("/restart", HTTP_POST, []() {
@@ -381,11 +399,11 @@ void webserver_start()
   // general api
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/wlan", HTTP_GET, handleGetWlan);
-  g_server.on("/api/plugin", HTTP_GET, handleGetPlugins);
+  g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
 
   // sensor api
   registerPlugins();
 
-  // Start server
+  // start server
   g_server.begin();
 }

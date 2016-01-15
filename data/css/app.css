@@ -1,0 +1,28 @@
+html, body, [type="text"] {
+	color: #666;
+}
+header {
+	width: 100%;
+	padding: 23px 0 19px 0;
+	/*margin-bottom: 10px;*/
+	color: #FFF;
+	background-color: #0292C0;
+	border-bottom: 1px solid #047A96;
+}
+header p {
+	margin: 5px 0 0 0;
+}
+.label {
+	margin-right: 10px;
+}
+.template {
+	display: none;
+}
+.menu-container {
+	padding: 5px 0 5px 0;
+	margin-bottom: 15px;
+	border-bottom: 1px solid #CACACA;
+}
+.em {
+	font-weight: bold;
+}

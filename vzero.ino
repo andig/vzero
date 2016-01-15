@@ -68,18 +68,17 @@ void setup()
     Serial.println(F("Failed to mount file system."));
     return;
   }
-  
-  // load wifi connection information
-  if (!loadConfig(&g_ssid, &g_pass)) {
-    g_ssid = "";
-    g_pass = "";
-
-    Serial.println(F("No WiFi connection information available."));
-  }
 
   Serial.println(F("-- Current WiFi config --"));
   Serial.println("SSID:   " + WiFi.SSID());
   Serial.println("PSK:    " + WiFi.psk() + "\n");
+  
+  // load wifi connection information
+  if (!loadConfig(&g_ssid, &g_pass, &g_middleware)) {
+    g_ssid = "";
+    g_pass = "";
+    Serial.println(F("No WiFi connection information available."));
+  }
 
   // Check WiFi connection
   if (WiFi.getMode() != WIFI_STA) {
@@ -147,15 +146,18 @@ void setup()
   ArduinoOTA.setHostname(net_hostname.c_str());
   ArduinoOTA.onStart([]() {
     Serial.println(F("OTA Start"));
+    g_otaInProgress = 1;
   });
   ArduinoOTA.onEnd([]() {
     Serial.println(F("OTA End"));
+    g_otaInProgress = 0;
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("OTA Progress: %u%%\n", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("OTA Error[%u]: ", error);
+    g_otaInProgress = 2;
     if (error == OTA_AUTH_ERROR) Serial.println(F("OTA Auth Failed"));
     else if (error == OTA_BEGIN_ERROR) Serial.println(F("OTA Begin Failed"));
     else if (error == OTA_CONNECT_ERROR) Serial.println(F("OTA Connect Failed"));
@@ -174,33 +176,22 @@ void setup()
   webserver_start();
 }
 
-uint8_t pluginIndex = 0;
-
 /**
- * @brief Arduino loop function.
+ * Loop
  */
 void loop()
 {
-  // handle Webserver requests
-  g_server.handleClient();
+  // call plugin's loop method
+  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
+    // handle Webserver requests
+    g_server.handleClient();
 
 #ifdef OTA_SERVER
-  // handle OTA requests
-  ArduinoOTA.handle();
+    // handle OTA requests
+    ArduinoOTA.handle();
 #endif
 
-  // call plugin's loop method
-  if (pluginIndex < Plugin::count()) {
-/*
-    Serial.print(F("vzero::loop plugin #"));
-    Serial.print(pluginIndex);
-    Serial.println();
-*/
-    delay(500);
     Plugin::get(pluginIndex)->loop();
-  }
-  else {
-    pluginIndex = 0;
   }
 
   // trigger restart?
