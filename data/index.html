@@ -18,16 +18,12 @@
 	<div class="menu-container">
 		<div class="column row state-menu">
 			<ul class="vertical medium-horizontal menu">
-				<li><a href="#" state="home">Home</a></li>
-				<li><a href="#" state="plugins">Plugins &amp; Sensors</a></li>
-				<li><a href="#" state="settings">Settings</a></li>
-				<li><a href="#" state="status">Status</a></li>
+				<li><a href="#home">Home</a></li>
+				<li><a href="#plugins">Plugins &amp; Sensors</a></li>
+				<li><a href="#settings">Settings</a></li>
+				<li><a href="#status">Status</a></li>
 			</ul>
 		</div>
-	</div>
-
-
-	<div class="column row state-always messages">
 	</div>
 
 
@@ -38,7 +34,6 @@
 		Please configure WiFi credentials below and restart the device.</p>
 		<p>After restarting the device will connect to the specified WiFi network and should be accessible under this address: <a href="http://vzero-[esp8266].local">vzero-[esp8266].local</a>.</p>
 		<p>To access the device you will have to connect to the same WiFi network as the VZero.</p>
-		<p></p>
 		<p></p>
 	</div>
 
@@ -55,16 +50,14 @@
 			</div>
 			<div class="row wifi">
 				<div class="medium-2 small-12 columns">Password:</div>
-				<div class="medium-10 small-12 columns"><input type="text" name="pass" value="[pass]"/></div>
+				<div class="medium-10 small-12 columns"><input type="password" name="pass" value=""/></div>
 			</div>
 			<input type="hidden" name="middleware" value="[middleware]"/>
 			<div class="row">
 				<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
 				<div class="medium-10 hide-for-small-only columns">Note: Setting new WiFi credentials will restart the controller.</div>
 			</div>
-			<p></p>
 		</form>
-		<p></p>
 	</div>
 
 
@@ -72,8 +65,6 @@
 		<h2>Success!</h2>
 		<p>Congratulations - VZero is now connected to a wireless network.</p>
 		<p>Before VZero can start logging data a middleware must be configured. Please review the middleware settings below.</p>
-		<p></p>
-		<p></p>
 	</div>
 
 	<div class="column row state-initial-middleware state-settings">
@@ -89,19 +80,21 @@
 				<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
 				<div class="medium-10 hide-for-small-only columns">Note: Updating middleware will restart the controller.</div>
 			</div>
-			<p></p>
 		</form>
-		<p></p>
 	</div>
 
 
 	<div class="column row state-home">
 		<h2>Home</h2>
 
-		<p></p>
-		<form action="/update" method="POST">
+		<div class="template sensor-home large-4 medium-6 small-12 float-left text-center">
+			<p class="name"></p>
+			<p><span class="stat value"></span>&nbsp;<span class="unit"></span></p>
+		</div>
+
+<!-- 		<form action="/update" method="POST">
 			<input type="submit" class="button" value="Update">
-		</form>
+		</form> -->
 	</div>
 
 
@@ -111,8 +104,8 @@
 		<p>The VZero device is configured with the following data aquisition plugins:</p>
 
 		<div class="row template plugin">
-			<div class="medium-2 small-4 columns name"></div>
-			<div class="medium-10 small-8 columns description"></div>
+			<div class="medium-2 small-12 columns name"></div>
+			<div class="medium-10 small-12 columns description"></div>
 		</div>
 	</div>
 
@@ -121,8 +114,8 @@
 
 		<div class="row template sensor">
 			<div class="medium-2 small-4 columns name"></div>
-			<div class="medium-2 small-2 columns value"></div>
-			<div class="medium-8 small-6 columns link"></div>
+			<div class="medium-2 small-2 columns"><span class="value"></span>&nbsp;<span class="unit"></span></div>
+			<div class="medium-8 small-6 columns link"><input type="button" class="button secondary small sensor-connect hide" value="Connect" /></div>
 		</div>
 		<div class="column row template sensor-connect">
 			<input type="button" class="button" value="Connect" />
@@ -154,31 +147,27 @@
 			<div class="medium-2 small-8 columns heap">[heap]</div>
 			<div class="medium-8 hide-for-small-only columns spark"></div>
 		</div>
-		<p></p>
 		<form action="/restart" method="POST">
-			<input type="submit" class="button" value="Restart" />
+			<input type="submit" class="button warning" value="Restart" />
 		</form>
 	</div>
 
 
-	<div class="template success">
-		<p><span class="success label">Success</span><span class="title"></span><br/>
-		<span class="message"></span>
-		</p>
+	<div class="state-always messages footer-container hide"></div>
+	<div>
+		<div class="template success row">
+			<div class="medium-3 columns"><span class="success label">Success</span><span class="title"></span></div>
+			<div class="medium-9 columns left message"></div>
+		</div>
+		<div class="template warning row">
+			<div class="medium-3 columns"><span class="warning label">Warning</span><span class="title"></span></div>
+			<div class="medium-9 columns left message"></div>
+		</div>
+		<div class="template error row">
+			<div class="medium-3 columns"><span class="alert label">Error</span><span class="title"></span></div>
+			<div class="medium-9 columns left message"></div>
+		</div>
 	</div>
-
-	<div class="template warning">
-		<p><span class="warning label">Warning</span><span class="title"></span><br/>
-		<span class="message"></span>
-		</p>
-	</div>
-
-	<div class="template error">
-		<p><span class="alert label">Error</span><span class="title"></span><br/>
-		<span class="message"></span>
-		</p>
-	</div>
-
 
 	<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
 	<script>window.jQuery || document.write('<script src="js/jquery-2.1.4.min.js"><\/script>')</script>

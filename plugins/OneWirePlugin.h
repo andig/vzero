@@ -8,6 +8,8 @@
 
 #include "Plugin.h"
 
+#define DEBUG_ONEWIRE(...) Serial.printf( __VA_ARGS__ )
+
 
 #define MAX_SENSORS 10
 #define UUID_LENGTH 40

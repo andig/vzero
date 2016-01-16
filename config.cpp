@@ -46,14 +46,9 @@ bool loadConfig(String *ssid, String *pass, String *middleware)
     *middleware = MIDDLEWARE;
   }
 
-  Serial.println(F("-- Stored config --"));
-  Serial.print(F("SSID:   "));
-  Serial.println(*ssid);
-  Serial.print(F("PSK:    "));
-  Serial.println(*pass);
-  Serial.print(F("MW:     "));
-  Serial.println(*middleware);
-  Serial.println();
+  DEBUG_CORE("[core] config ssid:   %s\n", ssid->c_str());
+  DEBUG_CORE("[core] config psk:    %s\n", pass->c_str());
+  DEBUG_CORE("[core] middleware:    %s\n", middleware->c_str());
   
   return true;
 }

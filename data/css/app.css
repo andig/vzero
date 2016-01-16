@@ -3,7 +3,7 @@ html, body, [type="text"] {
 }
 header {
 	width: 100%;
-	padding: 23px 0 19px 0;
+	padding: 1.5rem 0 1rem 0;
 	/*margin-bottom: 10px;*/
 	color: #FFF;
 	background-color: #0292C0;
@@ -20,12 +20,26 @@ header p {
 }
 .menu-container {
 	padding: 5px 0 5px 0;
-	margin-bottom: 15px;
+	margin-bottom: 1rem;
 	border-bottom: 1px solid #CACACA;
+}
+.footer-container {
+	position: fixed;
+	bottom: 0px;
+	width: 100%;
+	height: auto;
+	max-height: 6rem;
+	padding: 0.5rem 0 0.5rem 0;
+	vertical-align: bottom;
+	border-top: 1px solid #CACACA;
+	background-color: #fff;
 }
 .em {
 	font-weight: bold;
 }
 div.state-menu {
 	padding-left: 0
+}
+div.row:not(.state-menu) {
+	/*margin-bottom: 0.5rem;*/
 }

@@ -20,64 +20,78 @@ function template(tpl, target) {
 }
 
 function initializePlugins() {
-	// json = [{"name":"1wire","settings":{"interval":30},"sensors":[{"addr":"28-17B650040000","uuid":"34b635a0-bbb3-11e5-9267-35c4f7cff544","value":21.50}]}];
-	$.getJSON("http://192.168.0.30/api/plugins").done(function(json) {
+	$.getJSON(getApi("/api/plugins")).done(function(json) {
 		// add plugins
 		$.each(json, function(i, plugin) {
 			var unit,
 				// el = $(".template.plugin").clone().removeClass("template").appendTo(".state-plugins:first()").css({color:"red"});
-				el = template(".plugin", ".state-plugins:first()");
-
+				el = template(".plugin", ".state-plugins:first()").addClass("plugin-" + plugin.name);;
 
 			if (plugin.name == "1wire") {
 				unit = "°C";
 				plugin.title = "1-Wire";
-
-				el.find(".name, .title").text(plugin.title);
 				el.find(".description").html("1-Wire is a device communications bus system designed by Dallas Semiconductor Corp. that provides low-speed data, signaling, and power over a single signal. (Source: <a href='https://en.wikipedia.org/wiki/1-Wire'>Wikipedia</a>)");
 			}
 			else if (plugin.name == "analog") {
 				unit = "V";
 				plugin.title = "Analog";
-
-				el.find(".name, .title").text(plugin.title);
 				el.find(".description").html("Analog plugin uses the built-in analog to digital (ADC) converter to measure analog voltages.");
 			}
+			else if (plugin.name == "gpio") {
+				unit = "Imp";
+				plugin.title = "GPIO";
+				el.find(".description").html("GPIO plugin is used to register and count digital pulses.");
+			}
+			else if (plugin.name == "wifi") {
+				unit = "dbm";
+				plugin.title = "WiFi";
+				el.find(".description").html("WiFi plugin measures the received signal strength indicator (RSSI) if the WiFi signal.");
+			}
+			el.find(".name, .title").text(plugin.title);
 
 			// add sensors
 			$.each(plugin.sensors, function(j, sensor) {
 				sensor.plugin = plugin.name;
-
-				// var el = $(".template.sensor").clone().removeClass("template").addClass("sensor-" + plugin.name + "-" + sensor.addr).appendTo(".state-sensors");
+				sensor.unit = unit;
+				// home screen
+				template(".sensor-home", ".state-home").addClass("sensor-" + plugin.name + "-" + sensor.addr);
+				// plugins screen
 				var el = template(".sensor", ".state-sensors").addClass("sensor-" + plugin.name + "-" + sensor.addr);
 
-				el.find(".name").text(sensor.addr);
-				el.find(".value").text(sensor.value + unit);
+				var sel = $(".sensor-" + plugin.name + "-" + sensor.addr);
+				sel.find(".name").text(sensor.addr);
+				sel.find(".value").text(sensor.value);
+				sel.find(".unit").text(sensor.unit);
 
 				if (sensor.uuid) {
 					el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
 				}
 				else {
-					// var el = $(".template.sensor-connect").removeClass("template").removeClass("hide").data(sensor).appendTo(".state-sensors");
-					var el = template(".sensor-connect", ".state-sensors").removeClass("hide").data(sensor);
+					el.find(".sensor-connect").removeClass("hide").data(sensor);
 
 					el.find("input").click(function() {
+						// create middleware channel
 						$.ajax(getMiddleware() + "/channel.json?" + $.param({
 							operation: "add",
 							type: "temperature",
 							title: sensor.addr,
 							style: "lines",
 							resolution: 1
-						})).done(function(json) {
-							console.log(json);
-
+						}))
+						.done(function(json) {
 							if (json.entity !== undefined && json.entity.uuid !== undefined) {
+								// update sensor uuid
+								sensor.uuid = json.entity.uuid;
 								$.ajax(getSensorApi(sensor) + "?" + $.param({
-									uuid: json.entity.uuid
-								})).done(function(json) {
+									uuid: sensor.uuid
+								}))
+								.done(function(json) {
+									el.find(".sensor-connect").addClass("hide");
+									el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
 									notify("success", "Sensor associated", "The sensor " + sensor.addr + " is now successfully connected. Sensor data will be directly logged to the middleware.")
-								}).fail(function() {
-									notify("error", "Sensor not connected", "Could not connect sensor " + sensor.addr + " to the middleware.")
+								})
+								.fail(function() {
+									notify("error", "Sensor not connected", "Failed to update sensor " + sensor.addr + " with middleware identifier.")
 								});
 							}
 						}).fail(function() {
@@ -90,10 +104,32 @@ function initializePlugins() {
 	});
 }
 
+function updateSensors() {
+	$.getJSON(getApi("/api/plugins")).done(function(json) {
+		// plugins
+		$.each(json, function(i, plugin) {
+			// sensors
+			$.each(plugin.sensors, function(j, sensor) {
+				$(".sensor-" + plugin.name + "-" + sensor.addr + " .value").text(sensor.value);
+			});
+		});
+	});
+}
+
+function getApi(api) {
+	// return api;
+	return "http://192.168.0.30" + api;
+}
+
+function getSensorApi(data) {
+	return getApi("/api/" + data.plugin + "/" + data.addr);
+}
+
 function getMiddleware() {
 	var mw = $(".middleware").val();
 	if (mw == "[middleware]") {
 		mw = "http://localhost:8888/vz/htdocs/middleware.php";
+		$(".middleware").val(mw);
 	}
 	if (mw.length && mw[mw.length-1] == '/') {
 		mw = mw.substring(0, mw.length-1);
@@ -114,27 +150,8 @@ function getFrontend() {
 	return mw;
 }
 
-function getSensorApi(data) {
-	return "http://192.168.0.30/api/" + data.plugin + "/" + data.addr;
-	return "/api/" + data.plugin + "/" + data.addr;
-}
-
-function notify(type, title, message) {
-	var hash = hashCode(message);
-	if ($(".hash-" + hash).length > 0) {
-		return hash;
-	}
-
-	// var el = $(".template." + type).clone().removeClass("template").addClass("hash-" + hash).appendTo(".messages");
-	var el = template(type, ".messages").addClass("hash-" + hash);
-	el.find(".title").text(title);
-	el.find(".message").text(message);
-	return(hash);
-}
-
 function updateStatus(json) {
 	// [0: "DEFAULT", 1: "WDT", 2: "EXCEPTION", 3: "SOFT_WDT", 4: "SOFT_RESTART", 5: "DEEP_SLEEP_AWAKE", 6: "EXT_SYS_RST"]
-	console.log(json);
 	if (json["resetcode"] >= 1 && json["resetcode"] <= 3) {
 		notify("warning", "Unexpected restart", "The VZero has experienced an unexpected restart, typically caused by an exception or the built-in watch dog timer. Please contact support if this happens regularly.", true);
 	}
@@ -175,18 +192,37 @@ function heartBeat() {
 		return;
 	}
 	apicall++;
-	$.getJSON('/api/status').done(function(json) {
+	$.getJSON(getApi('/api/status')).done(function(json) {
 		apicall--;
 		updateStatus(json);
 	})
 	.fail(function() {
 		apicall--;
-		updateStatus({
-			"uptime": 1.12346e6,
-			"heap": 35e3,
-			"resetcode": 0
-		});
+		notify("warning", "No connection", "Could not get status update from VZero.");
 	});
+}
+
+function notify(type, title, message) {
+	var hash = "hash-" + hashCode(message),
+		el = $("." + hash);
+	if (el.length > 0) {
+		el.data({created: Date.now()});
+		return;
+	}
+	// unhide message area
+	$(".footer-container").removeClass("hide");
+	// add message
+	var el = template("." + type, ".messages").addClass(hash).data({created: Date.now()});
+	el.find(".title").text(title);
+	el.find(".message").text(message);
+}
+
+function menu(sel) {
+	$(".menu a").removeClass("em");
+	$(".menu a[href=#" + sel + "]").addClass("em");
+
+	$("body > .column.row:not(.state-always)").addClass("hide");
+	$(".column.row.state-" + sel + ", .column.row.state-menu").removeClass("hide");
 }
 
 $(document).ready(function() {
@@ -204,11 +240,9 @@ $(document).ready(function() {
 	}
 	else {
 		// menu
+		menu("home");
 		$(".menu a").click(function() {
-			$(".menu a").removeClass("em");
-			$(this).addClass("em");
-			$("body > .column.row:not(.state-always):not(.template)").addClass("hide");
-			$(".column.row.state-" + $(this).attr("state") + ", .column.row.state-menu").removeClass("hide");
+			menu($(this).attr("href").slice(1));
 		});
 
 		initializePlugins();
@@ -222,6 +256,20 @@ $(document).ready(function() {
 		});
 
 		heartBeat();
-		window.setInterval(heartBeat, 10000);
+		window.setInterval(heartBeat, 5000);
+		window.setInterval(updateSensors, 10000);
+		window.setInterval(function() {
+			var now = Date.now();
+			$(".messages .row").each(function(i, el) {
+				if (now - $(el).data().created > 10000) {
+					$(el).fadeOut("slow", function() {
+						$(el).remove();
+						if ($(".messages .row").length == 0) {
+							$(".messages").addClass("hide");
+						}
+					});
+				}
+			});
+		}, 2000);
 	}
 });

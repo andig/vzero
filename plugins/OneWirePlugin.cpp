@@ -71,7 +71,7 @@ void OneWirePlugin::strToAddr(const char* ptr, uint8_t* addr) {
 OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&ow) {
   File configFile = SPIFFS.open(F("/1wire.config"), "r");
   if (configFile.size() == sizeof(devices)) {
-    Serial.println(F("Reading config file."));
+    DEBUG_ONEWIRE("[1wire] reading config file\n");
     configFile.read(&devices[0].addr[0], sizeof(devices));
   
     // find first empty device slot
@@ -79,27 +79,24 @@ OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&o
     char addr_c[20];
     addrToStr(addr_c, addr);
     devs = getSensorByAddr(addr_c) + 1;
-    Serial.printf("Got %u devices from config.\n", devs);
   }
   configFile.close();
 
   int8_t devsConfigured = devs;
 
   // locate devices on the bus
-  Serial.println(F("Looking for 1-Wire devices..."));
+  DEBUG_ONEWIRE("[1wire] looking for 1-Wire devices...\n");
   sensors.begin();
   sensors.setWaitForConversion(false);
   setupSensors();
 
   // found new devices?
   if (devsConfigured != devs) {
-    Serial.println(F("New devices found, saving config."));
     saveConfig();
   }
 
   // report parasite power
-  Serial.print(F("Parasite power is: "));
-  Serial.println((sensors.isParasitePowerMode()) ? F("on") : F("off"));
+  DEBUG_ONEWIRE("[1wire] parasite power: %s\n", (sensors.isParasitePowerMode()) ? "on" : "off");
 }
 
 String OneWirePlugin::getName() {
@@ -183,13 +180,11 @@ void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
  */
 void OneWirePlugin::loop() {
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD)) {
-//    Serial.println(F("1wire: request temp"));
     _status = PLUGIN_REQUESTING;
 
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
-//    Serial.println(F("1wire: read temp"));
     _status = PLUGIN_READING;
 
     readTemperatures();
@@ -198,33 +193,22 @@ void OneWirePlugin::loop() {
 }
 
 void OneWirePlugin::setupSensors() {
-  Serial.print(F("Found "));
-  Serial.print(sensors.getDeviceCount());
-  Serial.println(F(" devices."));
+  DEBUG_ONEWIRE("[1wire] found %d devices\n", sensors.getDeviceCount());
 
   DeviceAddress addr;
   for (int8_t i=0; i<sensors.getDeviceCount(); i++) {
     if (sensors.getAddress(addr, i)) {
       char addr_c[20];
       addrToStr(&addr_c[0], addr);
-      Serial.print(F("Found device: "));
-      Serial.print(addr_c);
-      Serial.print(" ");
+      DEBUG_ONEWIRE("[1wire] device: %s ", addr_c);
 
       int8_t sensorIndex = getSensorIndex(addr);
       if (sensorIndex >= 0) {
-        Serial.println(F("(known)"));
+        DEBUG_ONEWIRE("(known)\n");
       }
       else {
-        Serial.println(F("(new)"));
+        DEBUG_ONEWIRE("(new)\n");
         sensorIndex = addSensor(addr);
-/*
-        if (sensorIndex >= 0) {
-          Serial.print(F("Added device "));
-          Serial.println(addr_c);
-          Serial.printf("New device at index %i\n", sensorIndex);
-        }
-*/
       }
 
       // set precision
@@ -241,9 +225,10 @@ void OneWirePlugin::setupSensors() {
  * Private
  */
 bool OneWirePlugin::saveConfig() {
+  DEBUG_ONEWIRE("[1wire] saving config\n");
   File configFile = SPIFFS.open(F("/1wire.config"), "w");
   if (!configFile) {
-    Serial.println(F("Failed to open config file for writing"));
+    DEBUG_ONEWIRE("[1wire] failed to open config file for writing\n");
     return false;
   }
   
@@ -263,7 +248,7 @@ int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
 
 int8_t OneWirePlugin::addSensor(const uint8_t* addr) {
   if (devs >= MAX_SENSORS) {
-    Serial.println(F("Too many devices"));
+    DEBUG_ONEWIRE("[1wire] too many devices\n");
     return -1;
   }
   for (uint8_t i=0; i<8; i++) {
@@ -278,11 +263,8 @@ void OneWirePlugin::readTemperatures() {
     yield();
 
     if (devices[i].val == DEVICE_DISCONNECTED_C) {
-      Serial.println(F("Device disconnected"));
+      DEBUG_ONEWIRE("[1wire] device %s disconnected\n", devices[i].addr);
       continue;
     }
-
-    Serial.print(F("Temp: "));
-    Serial.println(devices[i].val);
   }
 }

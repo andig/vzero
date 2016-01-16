@@ -22,11 +22,14 @@
 #include "plugins/AnalogPlugin.h"
 #endif
 
+#ifdef PLUGIN_WIFI
+#include "plugins/WifiPlugin.h"
+#endif
+
 #ifdef OTA_SERVER
 #include <ArduinoOTA.h>
 #endif
 
-#define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
 
 /**
  * Validate physical flash settings vs IDE
@@ -77,8 +80,8 @@ void setup()
     delay(10);
   }
 
-  DEBUG_CORE("[wifi] current ssid:   %s\n", WiFi.SSID().c_str());
-  DEBUG_CORE("[wifi] current psk:    %s\n", WiFi.psk().c_str());
+  DEBUG_CORE("[wifi] current ssid:  %s\n", WiFi.SSID().c_str());
+  DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
   
   // load wifi connection information
   if (!loadConfig(&g_ssid, &g_pass, &g_middleware)) {
@@ -89,7 +92,7 @@ void setup()
 
   // compare file config with sdk config
   if (g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
-    DEBUG_CORE("[wifi] wifi config changed.\n");
+    DEBUG_CORE("[wifi] wifi config changed\n");
 
     // try to connect to WiFi station
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
@@ -115,7 +118,7 @@ void setup()
 
     // start MDNS
     if (!MDNS.begin(net_hostname.c_str())) {
-      DEBUG_CORE("[core] Error setting up mDNS responder!\n");
+      DEBUG_CORE("[core] error setting up mDNS responder\n");
     }
     else {
       DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
@@ -134,7 +137,7 @@ void setup()
 
 #ifdef OTA_SERVER
   // start OTA server
-  DEBUG_CORE("[core] Starting OTA server.\n");
+  DEBUG_CORE("[core] starting OTA server\n");
   ArduinoOTA.setHostname(net_hostname.c_str());
   ArduinoOTA.onStart([]() {
     DEBUG_CORE("[core] OTA Start\n");
@@ -155,6 +158,9 @@ void setup()
 #endif
 #ifdef PLUGIN_ANALOG
   new AnalogPlugin();
+#endif
+#ifdef PLUGIN_WIFI
+  new WifiPlugin();
 #endif
 
   // start webserver after plugins

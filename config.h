@@ -7,6 +7,8 @@
 /*
  * Defines
  */
+#define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
+
 #define OTA_SERVER
 #define DEBUG
 
@@ -16,6 +18,7 @@
 // included plugins
 #define PLUGIN_ONEWIRE
 #define PLUGIN_ANALOG
+#define PLUGIN_WIFI
 
 // plugin settings
 #define ONEWIRE_PIN 14
