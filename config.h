@@ -15,6 +15,7 @@
 
 // included plugins
 #define PLUGIN_ONEWIRE
+#define PLUGIN_ANALOG
 
 // plugin settings
 #define ONEWIRE_PIN 14

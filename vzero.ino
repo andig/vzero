@@ -12,16 +12,21 @@
 
 #include "config.h"
 #include "webserver.h"
-#include "Plugin.h"
+#include "plugins/Plugin.h"
 
 #ifdef PLUGIN_ONEWIRE
-#include "OneWirePlugin.h"
+#include "plugins/OneWirePlugin.h"
+#endif
+
+#ifdef PLUGIN_ANALOG
+#include "plugins/AnalogPlugin.h"
 #endif
 
 #ifdef OTA_SERVER
 #include <ArduinoOTA.h>
 #endif
 
+#define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
 
 /**
  * Validate physical flash settings vs IDE
@@ -31,15 +36,12 @@ void validateFlash()
   uint32_t realSize = ESP.getFlashChipRealSize();
   uint32_t ideSize = ESP.getFlashChipSize();
 
-  Serial.printf("Flash ID:   %08X\n", ESP.getFlashChipId());
-  Serial.printf("Flash size: %u\n", realSize);
-  Serial.printf("Flash free: %u\n", ESP.getFreeSketchSpace());
+  DEBUG_CORE("[core] Flash ID:   %08X\n", ESP.getFlashChipId());
+  DEBUG_CORE("[core] Flash size: %u\n", realSize);
+  DEBUG_CORE("[core] Flash free: %u\n", ESP.getFreeSketchSpace());
 
   if (ideSize != realSize) {
-    Serial.println(F("Flash configuration wrong!\n"));
-  }
-  else {
-    Serial.println(F("Flash configuration ok.\n"));
+    DEBUG_CORE("[core] Flash configuration wrong!\n");
   }
 }
 
@@ -49,8 +51,8 @@ void validateFlash()
 void setup()
 {
   Serial.begin(115200);
-  Serial.println(F("\nBooting..."));
-  Serial.printf("Chip ID:    %05X\n", ESP.getChipId());
+  DEBUG_CORE("\n\n[core] Booting...\n");
+  DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
 
   // set hostname
   net_hostname += "-";
@@ -58,26 +60,15 @@ void setup()
   WiFi.hostname(net_hostname);
 
   // print hostname
-  Serial.println("Hostname:   " + net_hostname + "\n");
+  DEBUG_CORE("[core] Hostname:   %s\n\n", net_hostname.c_str());
 
   // check flash settings
   validateFlash();
 
   // initialize file system
   if (!SPIFFS.begin()) {
-    Serial.println(F("Failed to mount file system."));
+    DEBUG_CORE("[core] Failed to mount file system.\n");
     return;
-  }
-
-  Serial.println(F("-- Current WiFi config --"));
-  Serial.println("SSID:   " + WiFi.SSID());
-  Serial.println("PSK:    " + WiFi.psk() + "\n");
-  
-  // load wifi connection information
-  if (!loadConfig(&g_ssid, &g_pass, &g_middleware)) {
-    g_ssid = "";
-    g_pass = "";
-    Serial.println(F("No WiFi connection information available."));
   }
 
   // Check WiFi connection
@@ -86,90 +77,84 @@ void setup()
     delay(10);
   }
 
+  DEBUG_CORE("[wifi] current ssid:   %s\n", WiFi.SSID().c_str());
+  DEBUG_CORE("[wifi] current psk:    %s\n", WiFi.psk().c_str());
+  
+  // load wifi connection information
+  if (!loadConfig(&g_ssid, &g_pass, &g_middleware)) {
+    g_ssid = "";
+    g_pass = "";
+    DEBUG_CORE("[wifi] no wifi config found.\n");
+  }
+
   // compare file config with sdk config
   if (g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
-    Serial.println(F("WiFi config changed."));
+    DEBUG_CORE("[wifi] wifi config changed.\n");
 
     // try to connect to WiFi station
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
-
-    // uncomment this for debugging output
-    WiFi.printDiag(Serial);
   }
   else {
     // begin with sdk config
     WiFi.begin();
   }
 
-  Serial.print(F("Waiting for WiFi connection."));
+  DEBUG_CORE("[wifi] waiting for connection");
 
   // give ESP 10 seconds to connect to station
   unsigned long startTime = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
-    Serial.write('.');
+    DEBUG_CORE(".");
     delay(100);
   }
-  Serial.println();
+  DEBUG_CORE("\n");
 
   // Check connection
   if (WiFi.status() == WL_CONNECTED) {
-    // print IP address
-    Serial.print(F("IP address: "));
-    Serial.println(WiFi.localIP());
+    DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
     // start MDNS
     if (!MDNS.begin(net_hostname.c_str())) {
-      Serial.println(F("Error setting up MDNS responder!"));
+      DEBUG_CORE("[core] Error setting up mDNS responder!\n");
     }
     else {
-      Serial.print(F("mDNS responder started at "));
-      Serial.print(net_hostname);
-      Serial.println(F(".local"));
+      DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
     }
   }
   else {
-    Serial.println(F("Cannot connect to WiFi. Going into AP mode."));
-
     // go into AP mode
+    DEBUG_CORE("[wifi] could connect to WiFi- going into AP mode\n");
+
     WiFi.mode(WIFI_AP); // WIFI_AP_STA
     delay(10);
 
     WiFi.softAP(ap_default_ssid);
-
-    Serial.print(F("IP address: "));
-    Serial.println(WiFi.softAPIP());
+    DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
   }
 
 #ifdef OTA_SERVER
   // start OTA server
-  Serial.println(F("Starting OTA server."));
+  DEBUG_CORE("[core] Starting OTA server.\n");
   ArduinoOTA.setHostname(net_hostname.c_str());
   ArduinoOTA.onStart([]() {
-    Serial.println(F("OTA Start"));
-    g_otaInProgress = 1;
+    DEBUG_CORE("[core] OTA Start\n");
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println(F("OTA End"));
-    g_otaInProgress = 0;
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("OTA Progress: %u%%\n", (progress / (total / 100)));
+    DEBUG_CORE("[core] OTA End\n");
   });
   ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("OTA Error[%u]: ", error);
-    g_otaInProgress = 2;
-    if (error == OTA_AUTH_ERROR) Serial.println(F("OTA Auth Failed"));
-    else if (error == OTA_BEGIN_ERROR) Serial.println(F("OTA Begin Failed"));
-    else if (error == OTA_CONNECT_ERROR) Serial.println(F("OTA Connect Failed"));
-    else if (error == OTA_RECEIVE_ERROR) Serial.println(F("OTA Receive Failed"));
-    else if (error == OTA_END_ERROR) Serial.println(F("OTA End Failed"));
+    DEBUG_CORE("[core] OTA Error [%u]\n", error);
   });
   ArduinoOTA.begin();
 #endif
 
   // start plugins
+  DEBUG_CORE("[core] starting plugins\n");
 #ifdef PLUGIN_ONEWIRE
   new OneWirePlugin(ONEWIRE_PIN);
+#endif
+#ifdef PLUGIN_ANALOG
+  new AnalogPlugin();
 #endif
 
   // start webserver after plugins
@@ -196,7 +181,7 @@ void loop()
 
   // trigger restart?
   if (g_restartTime > 0 && millis() >= g_restartTime) {
-    Serial.println(F("Restarting..."));
+    DEBUG_CORE("[core] Restarting...\n");
     g_restartTime = 0;
     ESP.restart();
   }

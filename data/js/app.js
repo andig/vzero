@@ -15,13 +15,19 @@ hashCode = function(str) {
   return hash;
 };
 
+function template(tpl, target) {
+	return $(".template" + tpl).clone().removeClass("template").appendTo(target);
+}
+
 function initializePlugins() {
 	// json = [{"name":"1wire","settings":{"interval":30},"sensors":[{"addr":"28-17B650040000","uuid":"34b635a0-bbb3-11e5-9267-35c4f7cff544","value":21.50}]}];
-	$.getJSON("/api/plugins").done(function(json) {
+	$.getJSON("http://192.168.0.30/api/plugins").done(function(json) {
 		// add plugins
 		$.each(json, function(i, plugin) {
 			var unit,
-				el = $(".template.plugin").removeClass("template").appendTo(".state-plugins:first()");
+				// el = $(".template.plugin").clone().removeClass("template").appendTo(".state-plugins:first()").css({color:"red"});
+				el = template(".plugin", ".state-plugins:first()");
+
 
 			if (plugin.name == "1wire") {
 				unit = "°C";
@@ -30,12 +36,21 @@ function initializePlugins() {
 				el.find(".name, .title").text(plugin.title);
 				el.find(".description").html("1-Wire is a device communications bus system designed by Dallas Semiconductor Corp. that provides low-speed data, signaling, and power over a single signal. (Source: <a href='https://en.wikipedia.org/wiki/1-Wire'>Wikipedia</a>)");
 			}
+			else if (plugin.name == "analog") {
+				unit = "V";
+				plugin.title = "Analog";
+
+				el.find(".name, .title").text(plugin.title);
+				el.find(".description").html("Analog plugin uses the built-in analog to digital (ADC) converter to measure analog voltages.");
+			}
 
 			// add sensors
 			$.each(plugin.sensors, function(j, sensor) {
 				sensor.plugin = plugin.name;
 
-				var el = $(".template.sensor").removeClass("template").addClass("sensor-" + plugin.name + "-" + sensor.addr).appendTo(".state-sensors");
+				// var el = $(".template.sensor").clone().removeClass("template").addClass("sensor-" + plugin.name + "-" + sensor.addr).appendTo(".state-sensors");
+				var el = template(".sensor", ".state-sensors").addClass("sensor-" + plugin.name + "-" + sensor.addr);
+
 				el.find(".name").text(sensor.addr);
 				el.find(".value").text(sensor.value + unit);
 
@@ -43,7 +58,9 @@ function initializePlugins() {
 					el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
 				}
 				else {
-					var el = $(".template.sensor-connect").removeClass("template").removeClass("hide").data(sensor).appendTo(".state-sensors");
+					// var el = $(".template.sensor-connect").removeClass("template").removeClass("hide").data(sensor).appendTo(".state-sensors");
+					var el = template(".sensor-connect", ".state-sensors").removeClass("hide").data(sensor);
+
 					el.find("input").click(function() {
 						$.ajax(getMiddleware() + "/channel.json?" + $.param({
 							operation: "add",
@@ -108,7 +125,8 @@ function notify(type, title, message) {
 		return hash;
 	}
 
-	var el = $(".template." + type).clone().removeClass("template").addClass("hash-" + hash).appendTo(".messages");
+	// var el = $(".template." + type).clone().removeClass("template").addClass("hash-" + hash).appendTo(".messages");
+	var el = template(type, ".messages").addClass("hash-" + hash);
 	el.find(".title").text(title);
 	el.find(".message").text(message);
 	return(hash);

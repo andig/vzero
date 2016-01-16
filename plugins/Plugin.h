@@ -10,7 +10,7 @@ class Plugin {
 public:
   static byte count();
   static Plugin* get(byte idx);
-  
+
   Plugin();
   virtual ~Plugin();
   virtual String getName();

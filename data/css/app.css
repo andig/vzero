@@ -26,3 +26,6 @@ header p {
 .em {
 	font-weight: bold;
 }
+div.state-menu {
+	padding-left: 0
+}

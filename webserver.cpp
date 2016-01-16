@@ -10,7 +10,7 @@
 #include "config.h"
 #include "webserver.h"
 #include "urlfunctions.h"
-#include "Plugin.h"
+#include "plugins/Plugin.h"
 
 // required for rst_info
 extern "C" {
@@ -24,7 +24,6 @@ extern "C" {
 ESP8266WebServer g_server(80);
 
 unsigned long g_restartTime = 0;
-int g_otaInProgress = 0;
 
 
 class PluginRequestHandler : public RequestHandler {
@@ -33,8 +32,6 @@ public:
   }
 
   bool canHandle(HTTPMethod requestMethod, String requestUri) override {
-    Serial.print("PluginRequestHandler::canHandle ");
-    Serial.println(requestMethod);
     if (requestMethod != HTTP_GET && requestMethod != HTTP_POST)
       return false;
     if (!requestUri.startsWith(_uri))
@@ -43,9 +40,6 @@ public:
   }
 
   bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
-    Serial.print("PluginRequestHandler::handle ");
-    Serial.println(requestUri);
-    
     if (!canHandle(requestMethod, requestUri))
       return false;
 
@@ -65,9 +59,7 @@ public:
     else if ((requestMethod == HTTP_POST && server.args() == 1 && server.argName(0) == "uuid")
       || (requestMethod == HTTP_GET && server.args() == 1 && server.argName(0) == "uuid")) {
       String uuid = server.arg(0);
-      Serial.println("calling setuuid");
       if (_plugin->setUuid(uuid.c_str(), _sensor)) {
-        Serial.println("calling getsensorjson");
         _plugin->getSensorJson(&json, _sensor);
         res = 200;
       }
@@ -98,14 +90,6 @@ void requestRestart()
   g_restartTime = millis() + 100;
 }
 
-void debug()
-{
-  Serial.print(F("uri: "));
-  Serial.print(g_server.uri());
-  Serial.print(" ");
-  Serial.println(g_server.args());
-}
-
 bool getUrlParam(String arg, String *value)
 {
   *value = "";
@@ -131,7 +115,7 @@ void jsonResponse(JsonVariant json, int res)
  */
 void handleRoot()
 {
-  debug();
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
   String indexHTML = F("<!DOCTYPE html><html><head><title>File not found</title></head><body><h1>File not found.</h1></body></html>");
 
   File indexFile = SPIFFS.open(F("/index.html"), "r");
@@ -164,7 +148,7 @@ void handleRoot()
  */
 void handleSettings()
 {
-  debug();
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
   resp += net_hostname;
   resp += F(".local/\"></head><body>");
@@ -230,7 +214,7 @@ void handleSettings()
  */
 void handleGetStatus()
 {
-  debug();
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
 
@@ -243,7 +227,6 @@ void handleGetStatus()
   // [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
   rst_info* resetInfo = ESP.getResetInfoPtr();
   json["resetcode"] = resetInfo->reason;
-  json["ota"] = g_otaInProgress;
   
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
   jsonResponse(json, 200);
@@ -293,7 +276,7 @@ void handleGetWlan()
  */
 void handleGetPlugins()
 {
-  debug();
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
   StaticJsonBuffer<512> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -312,30 +295,22 @@ void handleGetPlugins()
  */
 void handleNotFound()
 {
-  Serial.print(F("File not found: "));
-  Serial.println(g_server.uri());
-
-  String response = F("File not found");
-  g_server.send(404, "text/plain", response);
+  DEBUG_SERVER("[webserver] file not found %s\n", g_server.uri().c_str());
+  g_server.send(404, F("text/plain"), F("File not found"));
 }
 
 void serveStaticDir(String path)
 {
-  Serial.print(F("Static: "));
-  Serial.println(path);
-
   Dir dir = SPIFFS.openDir(path);
   while (dir.next()) {
+/*
     File file = dir.openFile("r");
-    Serial.print(F("Static: "));
-    Serial.println(file.name());
+    DEBUG_SERVER("[webserver] registering static file: %s\n", file.name().c_str());
     g_server.serveStatic(file.name(), SPIFFS, file.name(), CACHE_HEADER);
     file.close();
-/*    
-    Serial.print(F("Static: "));
-    Serial.println(dir.fileName());
-    g_server.serveStatic(dir.fileName(), SPIFFS, dir.fileName(), "max-age=86400");
 */
+    DEBUG_SERVER("[webserver] registering static file: %s\n", dir.fileName().c_str());
+    g_server.serveStatic(dir.fileName().c_str(), SPIFFS, dir.fileName().c_str(), CACHE_HEADER);
   }
 }
 
@@ -346,10 +321,9 @@ void serveStaticDir(String path)
 void registerPlugins()
 {
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    Plugin* plugin = Plugin::get(pluginIndex++);
-    Serial.print(F("Registering "));
-    Serial.println(plugin->getName());
-
+    Plugin* plugin = Plugin::get(pluginIndex);
+    DEBUG_SERVER("[webserver] registering plugin: %s ", plugin->getName().c_str());
+    
     String baseUri = "/api/";
     baseUri += plugin->getName();
     baseUri += "/";
@@ -360,7 +334,7 @@ void registerPlugins()
       char addr_c[20];
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
-      Serial.println(uri);
+      DEBUG_SERVER("%s\n", uri.c_str());
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
