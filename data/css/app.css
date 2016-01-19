@@ -40,6 +40,3 @@ header p {
 div.state-menu {
 	padding-left: 0
 }
-div.row:not(.state-menu) {
-	/*margin-bottom: 0.5rem;*/
-}

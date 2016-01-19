@@ -127,12 +127,18 @@
 		<h2>Status</h2>
 
 		<div class="row">
+			<div class="medium-2 small-4 columns">Uptime:</div>
+			<div class="medium-10 small-8 columns uptime">[uptime]</div>
+		</div>
+<!--
+		<div class="row">
 			<div class="medium-2 small-4 columns">Version:</div>
 			<div class="medium-10 small-8 columns">[build]</div>
 		</div>
+ -->
 		<div class="row">
-			<div class="medium-2 small-4 columns">Uptime:</div>
-			<div class="medium-10 small-8 columns uptime">[uptime]</div>
+			<div class="medium-2 small-4 columns">Serial:</div>
+			<div class="medium-10 small-8 columns">[esp8266]</div>
 		</div>
 		<div class="row">
 			<div class="medium-2 small-4 columns">WiFi:</div>
@@ -143,8 +149,12 @@
 			<div class="medium-10 small-8 columns">[ip]</div>
 		</div>
 		<div class="row">
+			<div class="medium-2 small-4 columns">Flash Memory:</div>
+			<div class="medium-10 small-8 columns flash">n/a</div>
+		</div>
+		<div class="row">
 			<div class="medium-2 small-4 columns">Free Memory:</div>
-			<div class="medium-2 small-8 columns heap">[heap]</div>
+			<div class="medium-2 small-8 columns heap">n/a</div>
 			<div class="medium-8 hide-for-small-only columns spark"></div>
 		</div>
 		<form action="/restart" method="POST">

@@ -19,6 +19,8 @@ String g_ssid = "";
 String g_pass = "";
 String g_middleware = MIDDLEWARE;
 
+// global variables
+uint16_t g_minFreeHeap = 65535;
 
 /**
  * @brief Read WiFi connection information from file system.
