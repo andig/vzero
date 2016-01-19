@@ -2,13 +2,18 @@
 #define ONEWIRE_PLUGIN_H
 
 #include <Arduino.h>
+#include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 #include "Plugin.h"
 
+#ifdef DEBUG
 #define DEBUG_ONEWIRE(...) Serial.printf( __VA_ARGS__ )
+#else
+#define DEBUG_ONEWIRE(...)
+#endif
 
 
 #define MAX_SENSORS 10
@@ -42,7 +47,8 @@ public:
 private:
   OneWire ow;
   DallasTemperature sensors;
-  
+  HTTPClient http;
+
   DeviceStruct devices[MAX_SENSORS];
   int8_t devs;
 
@@ -51,6 +57,7 @@ private:
   int8_t addSensor(const uint8_t* addr);
   void setupSensors();
   void readTemperatures();
+  void upload();
 };
 
 #endif
