@@ -25,7 +25,7 @@
 
 #ifdef DEBUG
 extern uint16_t g_minFreeHeap;
-#define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.println(g_minFreeHeap); }
+#define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.printf("[core] heap: %d\n", g_minFreeHeap); }
 #define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
 #else
 #define DEBUG_HEAP if (1==1) {}

@@ -3,14 +3,15 @@
  */
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
 #include <FS.h>
 #include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
 
 #include "config.h"
 #include "webserver.h"
 #include "urlfunctions.h"
 #include "plugins/Plugin.h"
+#include "SPIFFSEditor.h"
 
 // required for rst_info
 extern "C" {
@@ -20,35 +21,41 @@ extern "C" {
 
 #define CACHE_HEADER "max-age=86400"
 
-// Webserver handle on port 80
-ESP8266WebServer g_server(80);
+AsyncWebServer g_server(80);
 
 unsigned long g_restartTime = 0;
 
 
-class PluginRequestHandler : public RequestHandler {
+void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
+{
+  char buffer[512];
+  DEBUG_HEAP;
+  json.printTo(buffer, sizeof(buffer));
+  DEBUG_HEAP;
+  request->send(res, "application/json", buffer);
+}
+
+class PluginRequestHandler : public AsyncWebHandler {
 public:
   PluginRequestHandler(const char* uri, Plugin* plugin, const int8_t sensor) : _uri(uri), _plugin(plugin), _sensor(sensor) {
   }
 
-  bool canHandle(HTTPMethod requestMethod, String requestUri) override {
-    if (requestMethod != HTTP_GET && requestMethod != HTTP_POST)
+  bool canHandle(AsyncWebServerRequest *request){
+    if(request->method() != HTTP_GET && request->method() != HTTP_POST)
       return false;
-    if (!requestUri.startsWith(_uri))
+    if(!request->url().startsWith(_uri))
       return false;
+    request->addInterestingHeader("ANY");
     return true;
   }
-
-  bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
-    if (!canHandle(requestMethod, requestUri))
-      return false;
-
+  
+  void handleRequest(AsyncWebServerRequest *request) {
     StaticJsonBuffer<200> jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
     int res = 400; // JSON error
 
     // GET
-    if (requestMethod == HTTP_GET && server.args() == 0) {
+    if (request->method() == HTTP_GET && request->params() == 0) {
       float val = _plugin->getValue(_sensor);
       if (val != NAN) {
         json["value"] = val;
@@ -56,28 +63,22 @@ public:
       }
     }
     // POST
-    else if ((requestMethod == HTTP_POST && server.args() == 1 && server.argName(0) == "uuid")
-      || (requestMethod == HTTP_GET && server.args() == 1 && server.argName(0) == "uuid")) {
-      String uuid = server.arg(0);
+    else if ((request->method() == HTTP_POST || request->method() == HTTP_GET) 
+      && request->params() == 1 && request->hasParam("uuid")) {
+      String uuid = request->getParam(0)->value();
       if (_plugin->setUuid(uuid.c_str(), _sensor)) {
         _plugin->getSensorJson(&json, _sensor);
         res = 200;
       }
     }
-    
-    char buffer[200];
-    json.printTo(buffer, sizeof(buffer));
-    server.send(res, "application/json", buffer);
-    
-    return true;
-  }
 
+    jsonResponse(request, res, json);
+  }
 protected:
   String _uri;
   Plugin* _plugin;
   int8_t _sensor;
 };
-
 
 String getIP()
 {
@@ -90,39 +91,38 @@ void requestRestart()
   g_restartTime = millis() + 100;
 }
 
-bool getUrlParam(String arg, String *value)
-{
-  *value = "";
-  for (uint8_t i = 0; i < g_server.args(); i++) {
-    if (g_server.argName(i) == arg) {
-      *value = urldecode(g_server.arg(i));
-      value->trim();
-      return true;
-    }
-  }
-  return false;
-}
-
-void jsonResponse(JsonVariant json, int res)
-{
-  char buffer[512];
-  json.printTo(buffer, sizeof(buffer));
-  g_server.send(res, "application/json", buffer);
-}
-
 /**
  * Handle http root request
  */
-void handleRoot()
+void handleRoot(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
   String indexHTML = F("<!DOCTYPE html><html><head><title>File not found</title></head><body><h1>File not found.</h1></body></html>");
+  DEBUG_HEAP;
 
   File indexFile = SPIFFS.open(F("/index.html"), "r");
   if (indexFile) {
+    DEBUG_SERVER("[webserver] file read, size: %d\n", indexFile.size());
+    delay(100);
     indexHTML = indexFile.readString();
+/*
+    char *buf = (char *)malloc(indexFile.size()+1);
+    DEBUG_HEAP;delay(100);
+    indexFile.read((uint8_t *)buf, indexFile.size());
+    buf[indexFile.size()] = '\0';
+    indexHTML = String(buf);
+    DEBUG_HEAP;delay(100);
+    free(buf);
+    DEBUG_HEAP;delay(100);
+*/
+    DEBUG_SERVER("[webserver] file close\n");
+    delay(100);
     indexFile.close();
 
+    DEBUG_HEAP;
+    DEBUG_SERVER("[webserver] content length: %d\n", indexHTML.length());
+  }
+/*
     char buff[10];
     uint16_t s = millis() / 1000;
     uint16_t m = s / 60;
@@ -138,24 +138,27 @@ void handleRoot()
     indexHTML.replace("[middleware]", g_middleware);
     indexHTML.replace("[wifimode]", (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point");
     indexHTML.replace("[ip]", getIP());
+    DEBUG_HEAP;
   }
-
-  g_server.send(200, "text/html", indexHTML);
+*/
+  request->send(200, "text/html", indexHTML);
 }
 
 /**
  * Handle set request from http server.
  */
-void handleSettings()
+void handleSettings(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_HEAP;
+
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
   resp += net_hostname;
   resp += F(".local/\"></head><body>");
     
   // Check arguments
-  if (g_server.args() != 3) {
-    g_server.send(400, F("text/plain"), F("Bad request\n\n"));
+  if (request->args() != 3) {
+    request->send(400, F("text/plain"), F("Bad request\n\n"));
     return;
   }
 
@@ -166,18 +169,15 @@ void handleSettings()
   int result = 400;
 
   // read ssid and psk
-  for (uint8_t i = 0; i < g_server.args(); i++) {
-    arg = urldecode(g_server.arg(i));
-    arg.trim();
-    
-    if (g_server.argName(i) == "ssid") {
-      ssid = arg;
+  if (request->params() == 3) {
+    if (request->hasParam("ssid")) {
+      ssid = request->getParam("ssid")->value();
     }
-    else if (g_server.argName(i) == "pass") {
-      pass = arg;
+    if (request->hasParam("pass")) {
+      pass = request->getParam("pass")->value();
     }
-    else if (g_server.argName(i) == "middleware") {
-      middleware = arg;
+    if (request->hasParam("middleware")) {
+      middleware = request->getParam("middleware")->value();
     }
   }
 
@@ -202,7 +202,7 @@ void handleSettings()
   }
 
   resp += F("</body></html>");
-  g_server.send(result, "text/html", resp);
+  request->send(result, "text/html", resp);
 
   if (result == 200) {
     requestRestart(); 
@@ -212,71 +212,38 @@ void handleSettings()
 /**
  * Status JSON api
  */
-void handleGetStatus()
+void handleGetStatus(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_HEAP;
+
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
 
   json["uptime"] = millis();
-  json["heap"] = ESP.getFreeHeap();
   json["wifimode"] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
   json["ip"] = getIP();
   json["flash"] = ESP.getFlashChipRealSize();
+
+  json["heap"] = ESP.getFreeHeap();
+  json["minheap"] = g_minFreeHeap;
 
   // [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
   rst_info* resetInfo = ESP.getResetInfoPtr();
   json["resetcode"] = resetInfo->reason;
   
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
-  jsonResponse(json, 200);
-}
-
-/**
- * Wlan scan JSON api
- */
-void handleGetWlan()
-{
-/*
-  debug();
-  StaticJsonBuffer<200> jsonBuffer;
-  JsonArray& json = jsonBuffer.createArray();
-
-  // Wlan scan is only possible if in AP mode with STA enabled but disconnected
-  if (WiFi.getMode() == WIFI_AP_STA) {
-    // WiFi.scanNetworks will return the number of networks found
-    int n = WiFi.scanNetworks();
-    Serial.println(F("Wlan scan done"));
-    Serial.print(n);
-    Serial.println(F(" networks found"));
-    for (int i = 0; i < n; ++i) {
-      // Print SSID and RSSI for each network found
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(")");
-      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
-
-      JsonObject& data = json.createNestedObject();
-      data["ssid"] = WiFi.SSID(i);
-      data["rssi"] = WiFi.RSSI(i);
-      data["encryption"] = WiFi.encryptionType(i);
-    }
-    Serial.println("");
-  }
-
-  jsonResponse(json, 200);
-*/
+  jsonResponse(request, 200, json);
 }
 
 /**
  * Get plugin information
  */
-void handleGetPlugins()
+void handleGetPlugins(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", g_server.uri().c_str(), g_server.args());
+  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_HEAP;
+
   StaticJsonBuffer<512> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -287,16 +254,18 @@ void handleGetPlugins()
     plugin->getPluginJson(&obj);
   }
   
-  jsonResponse(json, 200);
+  jsonResponse(request, 200, json);
 }
 
 /**
  * Handle file not found from http server.
  */
-void handleNotFound()
+void handleNotFound(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] file not found %s\n", g_server.uri().c_str());
-  g_server.send(404, F("text/plain"), F("File not found"));
+  DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
+  DEBUG_HEAP;
+
+  request->send(404, F("text/plain"), F("File not found"));
 }
 
 void serveStaticDir(String path)
@@ -306,10 +275,14 @@ void serveStaticDir(String path)
 /*
     File file = dir.openFile("r");
     DEBUG_SERVER("[webserver] registering static file: %s\n", file.name().c_str());
+    DEBUG_HEAP;
+
     g_server.serveStatic(file.name(), SPIFFS, file.name(), CACHE_HEADER);
     file.close();
 */
     DEBUG_SERVER("[webserver] registering static file: %s\n", dir.fileName().c_str());
+    DEBUG_HEAP;
+
     g_server.serveStatic(dir.fileName().c_str(), SPIFFS, dir.fileName().c_str(), CACHE_HEADER);
   }
 }
@@ -323,7 +296,7 @@ void registerPlugins()
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     Plugin* plugin = Plugin::get(pluginIndex);
     DEBUG_SERVER("[webserver] registering plugin: %s ", plugin->getName().c_str());
-    
+
     String baseUri = "/api/";
     baseUri += plugin->getName();
     baseUri += "/";
@@ -335,6 +308,7 @@ void registerPlugins()
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
       DEBUG_SERVER("%s\n", uri.c_str());
+      DEBUG_HEAP;
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
@@ -346,8 +320,8 @@ void registerPlugins()
  */
 void webserver_start()
 {
-  g_server.on("/", handleRoot);
-  g_server.on("/index.html", handleRoot);
+  g_server.on("/", (ArRequestHandlerFunction) handleRoot);
+  g_server.on("/index.html", (ArRequestHandlerFunction) handleRoot);
 
   // static
   g_server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico", CACHE_HEADER);
@@ -356,27 +330,35 @@ void webserver_start()
   serveStaticDir("/css");
 
   // not found
-  g_server.onNotFound(handleNotFound);
-
+  g_server.onNotFound((ArRequestHandlerFunction) handleNotFound);
+/*
   // GET
-  g_server.on("/settings", HTTP_GET, handleSettings);
-
+  g_server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleSettings(request);
+  });
+  
   // POST
-  g_server.on("/restart", HTTP_POST, []() {
+  g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
     String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
     resp += net_hostname;
     resp += F(".local/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>");
-    g_server.send(200, "text/html", resp);
+    request->send(200, "text/html", resp);
     requestRestart();
   });
 
   // general api
-  g_server.on("/api/status", HTTP_GET, handleGetStatus);
-  g_server.on("/api/wlan", HTTP_GET, handleGetWlan);
-  g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
+  g_server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleGetStatus(request);
+  });
+  g_server.on("/api/plugins", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleGetPlugins(request);
+  });
 
   // sensor api
   registerPlugins();
+*/
+  // SPIFFS editor for debugging
+  // g_server.addHandler(new SPIFFSEditor("", ""));
 
   // start server
   g_server.begin();

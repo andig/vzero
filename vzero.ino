@@ -1,4 +1,4 @@
-/**
+ /**
  * VZero - Zero Config Volkszaehler Controller
  *
  * @author Andreas Goetz <cpuidle@gmx.de>
@@ -7,7 +7,6 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-#include <ESP8266WebServer.h>
 #include <FS.h>
 
 #include "config.h"
@@ -63,7 +62,7 @@ void setup()
   WiFi.hostname(net_hostname);
 
   // print hostname
-  DEBUG_CORE("[core] Hostname:   %s\n\n", net_hostname.c_str());
+  DEBUG_CORE("[core] Hostname:   %s\n", net_hostname.c_str());
 
   // check flash settings
   validateFlash();
@@ -174,9 +173,6 @@ void loop()
 {
   // call plugin's loop method
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    // handle Webserver requests
-    g_server.handleClient();
-
 #ifdef OTA_SERVER
     // handle OTA requests
     ArduinoOTA.handle();
