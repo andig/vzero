@@ -29,9 +29,8 @@ unsigned long g_restartTime = 0;
 void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
 {
   char buffer[512];
-  DEBUG_HEAP;
   json.printTo(buffer, sizeof(buffer));
-  DEBUG_HEAP;
+  
   request->send(res, "application/json", buffer);
 }
 
@@ -92,115 +91,43 @@ void requestRestart()
 }
 
 /**
- * Handle http root request
- */
-void handleRoot(AsyncWebServerRequest *request)
-{
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  String indexHTML = F("<!DOCTYPE html><html><head><title>File not found</title></head><body><h1>File not found.</h1></body></html>");
-  DEBUG_HEAP;
-
-  File indexFile = SPIFFS.open(F("/index.html"), "r");
-  if (indexFile) {
-    DEBUG_SERVER("[webserver] file read, size: %d\n", indexFile.size());
-    delay(100);
-    indexHTML = indexFile.readString();
-/*
-    char *buf = (char *)malloc(indexFile.size()+1);
-    DEBUG_HEAP;delay(100);
-    indexFile.read((uint8_t *)buf, indexFile.size());
-    buf[indexFile.size()] = '\0';
-    indexHTML = String(buf);
-    DEBUG_HEAP;delay(100);
-    free(buf);
-    DEBUG_HEAP;delay(100);
-*/
-    DEBUG_SERVER("[webserver] file close\n");
-    delay(100);
-    indexFile.close();
-
-    DEBUG_HEAP;
-    DEBUG_SERVER("[webserver] content length: %d\n", indexHTML.length());
-  }
-/*
-    char buff[10];
-    uint16_t s = millis() / 1000;
-    uint16_t m = s / 60;
-    uint8_t h = m / 60;
-    snprintf(buff, 10, "%02d:%02d:%02d", h, m % 60, s % 60);
-
-    // replace placeholder
-    indexHTML.replace("[build]", BUILD);
-    indexHTML.replace("[esp8266]", String(ESP.getChipId(), HEX));
-    indexHTML.replace("[uptime]", buff);
-    indexHTML.replace("[ssid]", g_ssid);
-    indexHTML.replace("[pass]", g_pass);
-    indexHTML.replace("[middleware]", g_middleware);
-    indexHTML.replace("[wifimode]", (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point");
-    indexHTML.replace("[ip]", getIP());
-    DEBUG_HEAP;
-  }
-*/
-  request->send(200, "text/html", indexHTML);
-}
-
-/**
  * Handle set request from http server.
  */
 void handleSettings(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  DEBUG_HEAP;
-
-  String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
-  resp += net_hostname;
-  resp += F(".local/\"></head><body>");
-    
-  // Check arguments
-  if (request->args() != 3) {
-    request->send(400, F("text/plain"), F("Bad request\n\n"));
-    return;
-  }
-
-  String arg;
+  
+  String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; url=/\"></head><body>");
   String ssid = "";
   String pass = "";
-  String middleware = "";
   int result = 400;
 
   // read ssid and psk
-  if (request->params() == 3) {
-    if (request->hasParam("ssid")) {
-      ssid = request->getParam("ssid")->value();
-    }
-    if (request->hasParam("pass")) {
-      pass = request->getParam("pass")->value();
-    }
-    if (request->hasParam("middleware")) {
-      middleware = request->getParam("middleware")->value();
-    }
-  }
-
-  // check ssid and psk
-  if (ssid != "") {
-    // save ssid and psk to file
-    if (saveConfig(&ssid, &pass, &middleware)) {
-      // store SSID and PSK into global variables.
+  if (request->hasParam("ssid") && request->hasParam("pass")) {
+    ssid = request->getParam("ssid")->value();
+    pass = request->getParam("pass")->value();
+    if (ssid != "") {
       g_ssid = ssid;
       g_pass = pass;
-      g_middleware = middleware;
+      result = 200;
+    }
+  }
+  if (request->hasParam("middleware")) {
+    g_middleware = request->getParam("middleware")->value();
+    result = 200;
+  }
+  if (result == 400) {
+    request->send(result, F("text/plain"), F("Bad request\n\n"));
+    return;
+  }
 
-      resp += F("Success.");
-      result = 200; // HTTP OK
-    }
-    else {
-      resp += F("<h1>Failed to save config file.</h1>");
-    }
+  if (saveConfig()) {
+    resp += F("<h1>Settings saved.</h1>");
   }
   else {
-    resp += F("<h1>Wrong arguments.</h1>");
+    resp += F("<h1>Failed to save config file.</h1>");
+    result = 400;
   }
-
   resp += F("</body></html>");
   request->send(result, "text/html", resp);
 
@@ -215,24 +142,30 @@ void handleSettings(AsyncWebServerRequest *request)
 void handleGetStatus(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  DEBUG_HEAP;
 
   StaticJsonBuffer<200> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
+  rst_info* resetInfo = ESP.getResetInfoPtr();
+
+  if (request->hasParam("initial")) {
+    char buf[8];
+    sprintf(buf, "%06x", ESP.getChipId());
+    json["id"] = buf;
+    json["build"] = BUILD;
+    json["ssid"] = g_ssid;
+    json["pass"] = g_pass;
+    json["middleware"] = g_middleware;
+    json["flash"] = ESP.getFlashChipRealSize();
+    json["wifimode"] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
+    json["ip"] = getIP();
+  }
 
   json["uptime"] = millis();
-  json["wifimode"] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
-  json["ip"] = getIP();
-  json["flash"] = ESP.getFlashChipRealSize();
-
   json["heap"] = ESP.getFreeHeap();
   json["minheap"] = g_minFreeHeap;
-
-  // [/*0*/ "DEFAULT", /*1*/ "WDT", /*2*/ "EXCEPTION", /*3*/ "SOFT_WDT", /*4*/ "SOFT_RESTART", /*5*/ "DEEP_SLEEP_AWAKE", /*6*/ "EXT_SYS_RST"]
-  rst_info* resetInfo = ESP.getResetInfoPtr();
   json["resetcode"] = resetInfo->reason;
-  
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
+  
   jsonResponse(request, 200, json);
 }
 
@@ -242,8 +175,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
 void handleGetPlugins(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  DEBUG_HEAP;
-
+  
   StaticJsonBuffer<512> jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -257,32 +189,11 @@ void handleGetPlugins(AsyncWebServerRequest *request)
   jsonResponse(request, 200, json);
 }
 
-/**
- * Handle file not found from http server.
- */
-void handleNotFound(AsyncWebServerRequest *request)
-{
-  DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
-  DEBUG_HEAP;
-
-  request->send(404, F("text/plain"), F("File not found"));
-}
-
 void serveStaticDir(String path)
 {
   Dir dir = SPIFFS.openDir(path);
   while (dir.next()) {
-/*
-    File file = dir.openFile("r");
-    DEBUG_SERVER("[webserver] registering static file: %s\n", file.name().c_str());
-    DEBUG_HEAP;
-
-    g_server.serveStatic(file.name(), SPIFFS, file.name(), CACHE_HEADER);
-    file.close();
-*/
-    DEBUG_SERVER("[webserver] registering static file: %s\n", dir.fileName().c_str());
-    DEBUG_HEAP;
-
+    DEBUG_SERVER("[webserver] static file: %s\n", dir.fileName().c_str());
     g_server.serveStatic(dir.fileName().c_str(), SPIFFS, dir.fileName().c_str(), CACHE_HEADER);
   }
 }
@@ -308,7 +219,6 @@ void registerPlugins()
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
       DEBUG_SERVER("%s\n", uri.c_str());
-      DEBUG_HEAP;
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
@@ -320,43 +230,34 @@ void registerPlugins()
  */
 void webserver_start()
 {
-  g_server.on("/", (ArRequestHandlerFunction) handleRoot);
-  g_server.on("/index.html", (ArRequestHandlerFunction) handleRoot);
+  // not found
+  g_server.onNotFound([](AsyncWebServerRequest *request) {
+    DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
+    request->send(404, F("text/plain"), F("File not found"));
+  });
 
   // static
+  g_server.serveStatic("/", SPIFFS, "/index.html", CACHE_HEADER);
+  g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
   g_server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico", CACHE_HEADER);
   serveStaticDir("/img");
   serveStaticDir("/js");
   serveStaticDir("/css");
 
-  // not found
-  g_server.onNotFound((ArRequestHandlerFunction) handleNotFound);
-/*
   // GET
-  g_server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleSettings(request);
-  });
+  g_server.on("/settings", HTTP_GET, handleSettings);
+  g_server.on("/api/status", HTTP_GET, handleGetStatus);
+  g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
   
   // POST
   g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
-    String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; URL=http://");
-    resp += net_hostname;
-    resp += F(".local/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>");
-    request->send(200, "text/html", resp);
+    request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
-  });
-
-  // general api
-  g_server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleGetStatus(request);
-  });
-  g_server.on("/api/plugins", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleGetPlugins(request);
   });
 
   // sensor api
   registerPlugins();
-*/
+
   // SPIFFS editor for debugging
   // g_server.addHandler(new SPIFFSEditor("", ""));
 
