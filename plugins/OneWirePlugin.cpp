@@ -19,6 +19,7 @@
 #define SLEEP_PERIOD 10 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
 
+#define OPTIMISTIC_YIELD_TIME 16000
 
 /*
  * Static
@@ -163,7 +164,7 @@ void OneWirePlugin::getPluginJson(JsonObject* json) {
   char addr_c[20];
   for (int8_t i=0; i<devs; i++) {
     addrToStr(addr_c, devices[i].addr);
-    yield();
+    optimistic_yield(OPTIMISTIC_YIELD_TIME);
 
     JsonObject& data = sensorlist.createNestedObject();
     getSensorJson(&data, i);
@@ -270,7 +271,7 @@ int8_t OneWirePlugin::addSensor(const uint8_t* addr) {
 void OneWirePlugin::readTemperatures() {
   for (int8_t i=0; i<devs; i++) {
     devices[i].val = sensors.getTempC(devices[i].addr);
-    yield();
+    optimistic_yield(OPTIMISTIC_YIELD_TIME);
 
     if (devices[i].val == DEVICE_DISCONNECTED_C) {
       DEBUG_ONEWIRE("[1wire] device %s disconnected\n", devices[i].addr);

@@ -52,8 +52,7 @@ void setup()
   DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
 
   // set hostname
-  net_hostname += "-";
-  net_hostname += String(ESP.getChipId(), HEX);
+  net_hostname += "-" + String(ESP.getChipId(), HEX);
   WiFi.hostname(net_hostname);
 
   // print hostname
@@ -86,11 +85,11 @@ void setup()
   if (g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
     DEBUG_CORE("[wifi] wifi config changed\n");
 
-    // try to connect to WiFi station
+    // try to connect to configured station
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
   }
   else {
-    // begin with sdk config
+    // connect to sdk-configured station
     WiFi.begin();
   }
 

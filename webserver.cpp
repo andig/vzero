@@ -2,6 +2,7 @@
  * Web server
  */
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <FS.h>
 #include <ArduinoJson.h>
@@ -11,7 +12,10 @@
 #include "webserver.h"
 #include "urlfunctions.h"
 #include "plugins/Plugin.h"
+
+#ifdef SPIFFS_EDITOR
 #include "SPIFFSEditor.h"
+#endif
 
 // required for rst_info
 extern "C" {
@@ -142,14 +146,14 @@ void handleGetStatus(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
 
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<512> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
   rst_info* resetInfo = ESP.getResetInfoPtr();
 
   if (request->hasParam("initial")) {
     char buf[8];
     sprintf(buf, "%06x", ESP.getChipId());
-    json["id"] = buf;
+    json["serial"] = buf;
     json["build"] = BUILD;
     json["ssid"] = g_ssid;
     json["pass"] = g_pass;
@@ -184,7 +188,7 @@ void handleGetPlugins(AsyncWebServerRequest *request)
     obj["name"] = plugin->getName();
     plugin->getPluginJson(&obj);
   }
-  
+
   jsonResponse(request, 200, json);
 }
 
@@ -226,8 +230,9 @@ void registerPlugins()
  */
 void webserver_start()
 {
-  // SPIFFS editor for debugging
+#ifdef SPIFFS_EDITOR
   g_server.addHandler(new SPIFFSEditor("", ""));
+#endif
 
   // not found
   g_server.onNotFound([](AsyncWebServerRequest *request) {

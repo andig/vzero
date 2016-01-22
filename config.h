@@ -10,6 +10,8 @@
 #define DEBUG
 #define OTA_SERVER
 
+//#define SPIFFS_EDITOR
+
 // included plugins
 #define PLUGIN_ONEWIRE
 #define PLUGIN_ANALOG
@@ -18,7 +20,7 @@
 // plugin settings
 #define ONEWIRE_PIN 14
 
-#define BUILD "0.1"   // version
+#define BUILD "0.2a"   // version
 
 #ifdef DEBUG
 extern uint16_t g_minFreeHeap;

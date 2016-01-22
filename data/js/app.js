@@ -242,11 +242,13 @@ $(document).ready(function() {
 		$('.loader').remove();
 		$('.content > *').unwrap();
 
-		$('title').text($('title').text() + " (" + json.id + ")");
+		$('title').text($('title').text() + " (" + json.serial + ")");
 		$('.ip').text(json.ip);
 		$('.wifimode').text(json.wifimode);
+		$('.serial').text(json.serial);
 		$('.build').text(json.build);
-		$('.flash').text(json.flash);
+		$('.ssid').val(json.ssid);
+		$('.pass').val(json.pass);
 		$('.middleware').val(json.middleware);
 
 		// initial setup - wifi
