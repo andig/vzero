@@ -29,22 +29,13 @@
 #include <ArduinoOTA.h>
 #endif
 
+extern "C" void system_set_os_print(uint8 onoff);
+extern "C" void ets_install_putc1(void* routine);
 
-/**
- * Validate physical flash settings vs IDE
- */
-void validateFlash()
-{
-  uint32_t realSize = ESP.getFlashChipRealSize();
-  uint32_t ideSize = ESP.getFlashChipSize();
-
-  DEBUG_CORE("[core] Flash ID:   %08X\n", ESP.getFlashChipId());
-  DEBUG_CORE("[core] Flash size: %u\n", realSize);
-  DEBUG_CORE("[core] Flash free: %u\n", ESP.getFreeSketchSpace());
-
-  if (ideSize != realSize) {
-    DEBUG_CORE("[core] Flash configuration wrong!\n");
-  }
+// use the internal hardware buffer
+static void _u0_putc(char c){
+  while(((U0S >> USTXC) & 0x7F) == 0x7F);
+  U0F = c;
 }
 
 /**
@@ -53,6 +44,10 @@ void validateFlash()
 void setup()
 {
   Serial.begin(115200);
+  // hardware serial
+  ets_install_putc1((void *) &_u0_putc);
+  system_set_os_print(1);
+
   DEBUG_CORE("\n\n[core] Booting...\n");
   DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
 
@@ -83,9 +78,7 @@ void setup()
   DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
   
   // load wifi connection information
-  if (!loadConfig(&g_ssid, &g_pass, &g_middleware)) {
-    g_ssid = "";
-    g_pass = "";
+  if (!loadConfig()) {
     DEBUG_CORE("[wifi] no wifi config found.\n");
   }
 
@@ -161,7 +154,7 @@ void setup()
 #ifdef PLUGIN_WIFI
   new WifiPlugin();
 #endif
-
+  
   // start webserver after plugins
   webserver_start();
 }
@@ -171,13 +164,13 @@ void setup()
  */
 void loop()
 {
-  // call plugin's loop method
-  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
 #ifdef OTA_SERVER
     // handle OTA requests
     ArduinoOTA.handle();
 #endif
 
+  // call plugin's loop method
+  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     Plugin::get(pluginIndex)->loop();
   }
 

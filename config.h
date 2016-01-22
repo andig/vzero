@@ -10,9 +10,6 @@
 #define DEBUG
 #define OTA_SERVER
 
-// global settings
-#define MIDDLEWARE "http://demo.volkszaehler.org/middleware.php"
-
 // included plugins
 #define PLUGIN_ONEWIRE
 #define PLUGIN_ANALOG
@@ -34,8 +31,8 @@ extern uint16_t g_minFreeHeap;
 
 
 // default WiFi connection information.
-extern const char* ap_default_ssid; // Default SSID
-extern const char* ap_default_psk;  // Default PSK
+extern const char* ap_default_ssid; // default SSID
+extern const char* ap_default_psk;  // default PSK
 
 extern String net_hostname;
 
@@ -44,5 +41,7 @@ extern String g_ssid;
 extern String g_pass;
 extern String g_middleware;
 
-bool loadConfig(String *ssid, String *pass, String *middleware);
-bool saveConfig(String *ssid, String *pass, String *middleware);
+void validateFlash();
+bool loadConfig();
+bool saveConfig();
+

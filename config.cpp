@@ -17,68 +17,83 @@ String net_hostname = "vzero";
 // global settings
 String g_ssid = "";
 String g_pass = "";
-String g_middleware = MIDDLEWARE;
+String g_middleware = "";
 
 // global variables
 uint16_t g_minFreeHeap = 65535;
 
 /**
- * @brief Read WiFi connection information from file system.
- * @param ssid String pointer for storing SSID.
- * @param pass String pointer for storing PSK.
- * @return True or False.
+ * Validate physical flash settings vs IDE
  */
-bool loadConfig(String *ssid, String *pass, String *middleware)
+void validateFlash()
+{
+  uint32_t realSize = ESP.getFlashChipRealSize();
+  uint32_t ideSize = ESP.getFlashChipSize();
+
+  DEBUG_CORE("[core] Flash size: %u\n", realSize);
+  DEBUG_CORE("[core] Flash free: %u\n", ESP.getFreeSketchSpace());
+
+  if (ideSize != realSize) {
+    DEBUG_CORE("[core] Flash configuration wrong!\n");
+  }
+}
+
+/**
+ * Load config
+ */
+bool loadConfig()
 {
   File configFile = SPIFFS.open(F("/config.json"), "r");
-  size_t size = configFile.size();
-
-  // Allocate a buffer to store contents of the file
-  std::unique_ptr<char[]> buf(new char[size]);
-  configFile.readBytes(buf.get(), size);
+  if (!configFile)
+    return false;
+  char *buf = (char*)malloc(configFile.size()+1);
+  if (!buf) 
+    return false;
+  configFile.read((uint8_t *)buf, configFile.size());
+  buf[configFile.size()] = '\0';
+/*
+  Serial.printf("%d ", configFile.size());
+  Serial.printf("%s\n", buf);
+*/
   configFile.close();
 
-  StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& json = jsonBuffer.parseObject(buf.get());
-  *ssid = json["ssid"].asString();
-  *pass = json["password"].asString();
-  *middleware = json["middleware"].asString();
+  String arg;
+  StaticJsonBuffer<512> jsonBuffer;
+  JsonObject& json = jsonBuffer.parseObject(buf);
+  arg = json["ssid"].asString();
+  if (arg) g_ssid = arg;
+  arg = json["password"].asString();
+  if (arg) g_pass = arg;
+  arg = json["middleware"].asString();
+  if (arg) g_middleware = arg;
 
-  if (*middleware == "") {
-    *middleware = MIDDLEWARE;
-  }
-
-  DEBUG_CORE("[core] config ssid:   %s\n", ssid->c_str());
-  DEBUG_CORE("[core] config psk:    %s\n", pass->c_str());
-  DEBUG_CORE("[core] middleware:    %s\n", middleware->c_str());
+  DEBUG_CORE("[core] config ssid:   %s\n", g_ssid.c_str());
+  DEBUG_CORE("[core] config psk:    %s\n", g_pass.c_str());
+  DEBUG_CORE("[core] middleware:    %s\n", g_middleware.c_str());
   
   return true;
 }
 
 /**
- * @brief Save WiFi SSID and PSK to configuration file.
- * @param ssid SSID as string pointer.
- * @param pass PSK as string pointer,
- * @return True or False.
+ * Save config
  */
-bool saveConfig(String *ssid, String *pass, String *middleware)
+bool saveConfig()
 {
-  // Open config file for writing
   File configFile = SPIFFS.open(F("/config.json"), "w");
   if (!configFile) {
     Serial.println(F("Failed to open config file for writing"));
     return false;
   }
 
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<512> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
-  json["ssid"] = *ssid;
-  json["password"] = *pass;
-  json["middleware"] = *middleware;
+  json["ssid"] = g_ssid;
+  json["password"] = g_pass;
+  json["middleware"] = g_middleware;
 
   json.printTo(configFile);
   configFile.close();
-  
+
   return true;
 }
 

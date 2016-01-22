@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>VZero ([esp8266])</title>
+	<title>VZero</title>
 	<meta content="text/html;charset=utf8" http-equiv="Content-Type">
 	<link rel="shortcut icon" href="favicon.ico" />
 	<link rel="stylesheet" href="css/foundation.min.css">
@@ -15,167 +15,171 @@
 		</div>
 	</header>
 
-	<div class="menu-container">
-		<div class="column row state-menu">
-			<ul class="vertical medium-horizontal menu">
-				<li><a href="#home">Home</a></li>
-				<li><a href="#plugins">Plugins &amp; Sensors</a></li>
-				<li><a href="#settings">Settings</a></li>
-				<li><a href="#status">Status</a></li>
-			</ul>
+	<div class="loader">
+		<h2 class="subheader">loading...</h2>
+	</div>
+
+	<div class="content">
+		<div class="menu-container">
+			<div class="column row state-menu">
+				<ul class="vertical medium-horizontal menu">
+					<li><a href="#home">Home</a></li>
+					<li><a href="#plugins">Plugins &amp; Sensors</a></li>
+					<li><a href="#settings">Settings</a></li>
+					<li><a href="#status">Status</a></li>
+				</ul>
+			</div>
 		</div>
-	</div>
+
+		<div class="column row hide state-initial-wifi">
+			<h2>Welcome to VZero</h2>
+			<p>Congratulations - you've successfully started your device!</p>
+			<p>Your VZero device was not yet able to connect to a WiFi network and is currently running as Access Point.
+			Please configure WiFi credentials below and restart the device.</p>
+			<p>After restarting the device will connect to the specified WiFi network and should be accessible under this address: <a href="http://vzero-[esp8266].local">vzero-[esp8266].local</a>.</p>
+			<p>To access the device you will have to connect to the same WiFi network as the VZero.</p>
+			<p></p>
+		</div>
+
+		<div class="column row state-settings">
+			<h2>Settings</h2>
+		</div>
+
+		<div class="column row state-initial-wifi state-settings">
+			<h4>WiFi Configuration</h4>
+			<form action="/settings" method="GET">
+				<div class="row wifi">
+					<div class="medium-2 small-12 columns">SSID:</div>
+					<div class="medium-10 small-12 columns ssid"><input type="text" name="ssid" value=""/></div>
+				</div>
+				<div class="row wifi">
+					<div class="medium-2 small-12 columns">Password:</div>
+					<div class="medium-10 small-12 columns pass"><input type="password" name="pass" value=""/></div>
+				</div>
+				<div class="row">
+					<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
+					<div class="medium-10 hide-for-small-only columns">Note: Setting new WiFi credentials will restart the controller.</div>
+				</div>
+			</form>
+		</div>
 
 
-	<div class="column row hide state-initial-wifi">
-		<h2>Welcome to VZero</h2>
-		<p>Congratulations - you've successfully started your device!</p>
-		<p>Your VZero device was not yet able to connect to a WiFi network and is currently running as Access Point.
-		Please configure WiFi credentials below and restart the device.</p>
-		<p>After restarting the device will connect to the specified WiFi network and should be accessible under this address: <a href="http://vzero-[esp8266].local">vzero-[esp8266].local</a>.</p>
-		<p>To access the device you will have to connect to the same WiFi network as the VZero.</p>
-		<p></p>
-	</div>
+		<div class="column row hide state-initial-middleware">
+			<h2>Success!</h2>
+			<p>Congratulations - VZero is now connected to a wireless network.</p>
+			<p>Before VZero can start logging data a middleware must be configured. Please review the middleware settings below.</p>
+		</div>
 
-	<div class="column row state-settings">
-		<h2>Settings</h2>
-	</div>
+		<div class="column row state-initial-middleware state-settings">
+			<h4>Middleware Configuration</h4>
+			<form action="/settings" method="GET">
+				<div class="row">
+					<div class="medium-2 small-12 columns">Middleware:</div>
+					<div class="medium-10 small-12 columns"><input type="text" class="middleware" name="middleware"/></div>
+				</div>
+				<div class="row">
+					<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
+					<div class="medium-10 hide-for-small-only columns">Note: Updating middleware will restart the controller.</div>
+				</div>
+			</form>
+		</div>
 
-	<div class="column row state-initial-wifi state-settings">
-		<h4>WiFi Configuration</h4>
-		<form action="/settings" method="GET">
-			<div class="row wifi">
-				<div class="medium-2 small-12 columns">SSID:</div>
-				<div class="medium-10 small-12 columns"><input type="text" name="ssid" value="[ssid]"/></div>
+
+		<div class="column row state-home">
+			<h2>Home</h2>
+
+			<div class="template sensor-home large-4 medium-6 small-12 float-left text-center">
+				<p class="name"></p>
+				<p><span class="stat value"></span>&nbsp;<span class="unit"></span></p>
 			</div>
-			<div class="row wifi">
-				<div class="medium-2 small-12 columns">Password:</div>
-				<div class="medium-10 small-12 columns"><input type="password" name="pass" value=""/></div>
+
+	<!-- 		<form action="/update" method="POST">
+				<input type="submit" class="button" value="Update">
+			</form> -->
+		</div>
+
+
+		<div class="column row state-plugins">
+			<h2>Plugins &amp; Sensors</h2>
+			<h4>Plugins</h4>
+			<p>The VZero device is configured with the following data aquisition plugins:</p>
+			<p class="not-configured">Nothing configured</p>
+
+			<div class="row template plugin">
+				<div class="medium-2 small-12 columns name"></div>
+				<div class="medium-10 small-12 columns description"></div>
 			</div>
-			<input type="hidden" name="middleware" value="[middleware]"/>
+		</div>
+
+		<div class="column row state-plugins state-sensors">
+			<h4>Sensors</h4>
+			<p class="not-configured">Nothing configured</p>
+
+			<div class="row template sensor">
+				<div class="medium-2 small-4 columns name"></div>
+				<div class="medium-2 small-2 columns"><span class="value"></span>&nbsp;<span class="unit"></span></div>
+				<div class="medium-8 small-6 columns link"><input type="button" class="button secondary small sensor-connect hide" value="Connect" /></div>
+			</div>
+			<div class="column row template sensor-connect">
+				<input type="button" class="button" value="Connect" />
+			</div>
+		</div>
+
+
+		<div class="column row state-status">
+			<h2>Status</h2>
+
 			<div class="row">
-				<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
-				<div class="medium-10 hide-for-small-only columns">Note: Setting new WiFi credentials will restart the controller.</div>
+				<div class="medium-2 small-4 columns">Uptime:</div>
+				<div class="medium-10 small-8 columns uptime">[uptime]</div>
 			</div>
-		</form>
-	</div>
-
-
-	<div class="column row hide state-initial-middleware">
-		<h2>Success!</h2>
-		<p>Congratulations - VZero is now connected to a wireless network.</p>
-		<p>Before VZero can start logging data a middleware must be configured. Please review the middleware settings below.</p>
-	</div>
-
-	<div class="column row state-initial-middleware state-settings">
-		<h4>Middleware Configuration</h4>
-		<form action="/settings" method="GET">
-			<input type="hidden" name="ssid" value="[ssid]"/>
-			<input type="hidden" name="pass" value="[pass]"/>
+	<!--
 			<div class="row">
-				<div class="medium-2 small-12 columns">Middleware:</div>
-				<div class="medium-10 small-12 columns"><input type="text" class="middleware" name="middleware" value="[middleware]"/></div>
+				<div class="medium-2 small-4 columns">Version:</div>
+				<div class="medium-10 small-8 columns build">[build]</div>
+			</div>
+	 -->
+			<div class="row">
+				<div class="medium-2 small-4 columns">Serial:</div>
+				<div class="medium-10 small-8 columns id"></div>
 			</div>
 			<div class="row">
-				<div class="medium-2 small-12 columns"><input type="submit" class="button" value="Update"/></div>
-				<div class="medium-10 hide-for-small-only columns">Note: Updating middleware will restart the controller.</div>
+				<div class="medium-2 small-4 columns">WiFi:</div>
+				<div class="medium-10 small-8 columns wifimode"></div>
 			</div>
-		</form>
-	</div>
-
-
-	<div class="column row state-home">
-		<h2>Home</h2>
-
-		<div class="template sensor-home large-4 medium-6 small-12 float-left text-center">
-			<p class="name"></p>
-			<p><span class="stat value"></span>&nbsp;<span class="unit"></span></p>
+			<div class="row">
+				<div class="medium-2 small-4 columns">IP Address:</div>
+				<div class="medium-10 small-8 columns ip"></div>
+			</div>
+			<div class="row">
+				<div class="medium-2 small-4 columns">Flash Memory:</div>
+				<div class="medium-10 small-8 columns flash">n/a</div>
+			</div>
+			<div class="row">
+				<div class="medium-2 small-4 columns">Free Memory:</div>
+				<div class="medium-2 small-8 columns heap">n/a</div>
+				<div class="medium-8 hide-for-small-only columns spark"></div>
+			</div>
+			<form action="/restart" method="POST">
+				<input type="submit" class="button warning" value="Restart" />
+			</form>
 		</div>
 
-<!-- 		<form action="/update" method="POST">
-			<input type="submit" class="button" value="Update">
-		</form> -->
-	</div>
 
-
-	<div class="column row state-plugins">
-		<h2>Plugins &amp; Sensors</h2>
-		<h4>Plugins</h4>
-		<p>The VZero device is configured with the following data aquisition plugins:</p>
-
-		<div class="row template plugin">
-			<div class="medium-2 small-12 columns name"></div>
-			<div class="medium-10 small-12 columns description"></div>
-		</div>
-	</div>
-
-	<div class="column row state-plugins state-sensors">
-		<h4>Sensors</h4>
-
-		<div class="row template sensor">
-			<div class="medium-2 small-4 columns name"></div>
-			<div class="medium-2 small-2 columns"><span class="value"></span>&nbsp;<span class="unit"></span></div>
-			<div class="medium-8 small-6 columns link"><input type="button" class="button secondary small sensor-connect hide" value="Connect" /></div>
-		</div>
-		<div class="column row template sensor-connect">
-			<input type="button" class="button" value="Connect" />
-		</div>
-	</div>
-
-
-	<div class="column row state-status">
-		<h2>Status</h2>
-
-		<div class="row">
-			<div class="medium-2 small-4 columns">Uptime:</div>
-			<div class="medium-10 small-8 columns uptime">[uptime]</div>
-		</div>
-<!--
-		<div class="row">
-			<div class="medium-2 small-4 columns">Version:</div>
-			<div class="medium-10 small-8 columns">[build]</div>
-		</div>
- -->
-		<div class="row">
-			<div class="medium-2 small-4 columns">Serial:</div>
-			<div class="medium-10 small-8 columns">[esp8266]</div>
-		</div>
-		<div class="row">
-			<div class="medium-2 small-4 columns">WiFi:</div>
-			<div class="medium-10 small-8 columns wifimode">[wifimode]</div>
-		</div>
-		<div class="row">
-			<div class="medium-2 small-4 columns">IP Address:</div>
-			<div class="medium-10 small-8 columns">[ip]</div>
-		</div>
-		<div class="row">
-			<div class="medium-2 small-4 columns">Flash Memory:</div>
-			<div class="medium-10 small-8 columns flash">n/a</div>
-		</div>
-		<div class="row">
-			<div class="medium-2 small-4 columns">Free Memory:</div>
-			<div class="medium-2 small-8 columns heap">n/a</div>
-			<div class="medium-8 hide-for-small-only columns spark"></div>
-		</div>
-		<form action="/restart" method="POST">
-			<input type="submit" class="button warning" value="Restart" />
-		</form>
-	</div>
-
-
-	<div class="state-always messages footer-container hide"></div>
-	<div>
-		<div class="template success row">
-			<div class="medium-3 columns"><span class="success label">Success</span><span class="title"></span></div>
-			<div class="medium-9 columns left message"></div>
-		</div>
-		<div class="template warning row">
-			<div class="medium-3 columns"><span class="warning label">Warning</span><span class="title"></span></div>
-			<div class="medium-9 columns left message"></div>
-		</div>
-		<div class="template error row">
-			<div class="medium-3 columns"><span class="alert label">Error</span><span class="title"></span></div>
-			<div class="medium-9 columns left message"></div>
+		<div class="state-always messages footer-container hide"></div>
+		<div>
+			<div class="template success row">
+				<div class="medium-3 columns"><span class="success label">Success</span><span class="title"></span></div>
+				<div class="medium-9 columns left message"></div>
+			</div>
+			<div class="template warning row">
+				<div class="medium-3 columns"><span class="warning label">Warning</span><span class="title"></span></div>
+				<div class="medium-9 columns left message"></div>
+			</div>
+			<div class="template error row">
+				<div class="medium-3 columns"><span class="alert label">Error</span><span class="title"></span></div>
+				<div class="medium-9 columns left message"></div>
+			</div>
 		</div>
 	</div>
 

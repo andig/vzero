@@ -97,7 +97,7 @@ void handleSettings(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
   
-  String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3; url=/\"></head><body>");
+  String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>");
   String ssid = "";
   String pass = "";
   int result = 400;
@@ -129,11 +129,10 @@ void handleSettings(AsyncWebServerRequest *request)
     result = 400;
   }
   resp += F("</body></html>");
-  request->send(result, "text/html", resp);
-
   if (result == 200) {
     requestRestart(); 
   }
+  request->send(result, "text/html", resp);
 }
 
 /**
@@ -208,11 +207,8 @@ void registerPlugins()
     Plugin* plugin = Plugin::get(pluginIndex);
     DEBUG_SERVER("[webserver] registering plugin: %s ", plugin->getName().c_str());
 
-    String baseUri = "/api/";
-    baseUri += plugin->getName();
-    baseUri += "/";
-
     // register one handler per sensor
+    String baseUri = "/api/" + plugin->getName() + "/";
     for  (int8_t sensor=0; sensor<plugin->getSensors(); sensor++) {
       String uri = String(baseUri);
       char addr_c[20];
@@ -230,6 +226,9 @@ void registerPlugins()
  */
 void webserver_start()
 {
+  // SPIFFS editor for debugging
+  g_server.addHandler(new SPIFFSEditor("", ""));
+
   // not found
   g_server.onNotFound([](AsyncWebServerRequest *request) {
     DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
@@ -251,15 +250,12 @@ void webserver_start()
   
   // POST
   g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
-    request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"3\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
+    request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
   });
 
   // sensor api
   registerPlugins();
-
-  // SPIFFS editor for debugging
-  // g_server.addHandler(new SPIFFSEditor("", ""));
 
   // start server
   g_server.begin();

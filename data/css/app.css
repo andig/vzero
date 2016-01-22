@@ -40,3 +40,9 @@ header p {
 div.state-menu {
 	padding-left: 0
 }
+.loader {
+	position: absolute; top: 50%; text-align: center; width: 100%;
+}
+.content {
+	display: none;
+}
