@@ -176,6 +176,9 @@ function heartBeat(to, initial) {
 		}
 
 		var heap = json.heap;
+		if (heap < 16384) {
+			notify("warning", "Low memory", "Available memory has reached a critical limit. VZero might become unstable.")
+		}
 		if (heap > 1024) {
 			heap = Math.round(heap / 1024) + 'kB';
 		}
@@ -233,12 +236,8 @@ function menu(sel) {
 	$(".column.row.state-" + sel + ", .column.row.state-menu").removeClass("hide");
 }
 
-$(document).ready(function() {
-	// status = 1;
-
-	$('.loader .subheader').text("connecting...");
+function connectDevice() {
 	heartBeat(5000, true).done(function(json) {
-		console.log(json);
 		$('.loader').remove();
 		$('.content > *').unwrap();
 
@@ -279,13 +278,13 @@ $(document).ready(function() {
 				min: 0
 			});
 
-			heartBeat(5000);
+			heartBeat(10000);
 			window.setInterval(function() {
-				heartBeat(5000);
-			}, 5000);
-			window.setInterval(function() {
-				updateSensors(10000);
+				heartBeat(10000);
 			}, 10000);
+			window.setInterval(function() {
+				updateSensors(30000);
+			}, 30000);
 
 			window.setInterval(function() {
 				var now = Date.now();
@@ -301,5 +300,11 @@ $(document).ready(function() {
 				});
 			}, 2000);
 		}
-	});
+	}).fail(connectDevice);
+}
+
+$(document).ready(function() {
+	// status = 1;
+	$('.loader .subheader').text("connecting...");
+	connectDevice();
 });
