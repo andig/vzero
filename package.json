@@ -1,0 +1,19 @@
+{
+  "name": "VZero",
+  "version": "1.0.0",
+  "description": "VZero build scripts",
+  "license": "GPL",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andig/vzero.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andig/vzero/issues"
+  },
+  "author": "Andreas Goetz <cpuidle@gmx.de>",
+  "devDependencies": {
+    "del": "^2.2.0",
+    "gulp": "^3.8.10",
+    "gulp-gzip": "^1.2.0"
+  }
+}
