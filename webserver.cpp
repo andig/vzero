@@ -48,12 +48,11 @@ public:
       return false;
     if(!request->url().startsWith(_uri))
       return false;
-    request->addInterestingHeader("ANY");
     return true;
   }
   
   void handleRequest(AsyncWebServerRequest *request) {
-    StaticJsonBuffer<200> jsonBuffer;
+    DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
     int res = 400; // JSON error
 
@@ -67,7 +66,8 @@ public:
     }
     // POST
     else if ((request->method() == HTTP_POST || request->method() == HTTP_GET) 
-      && request->params() == 1 && request->hasParam("uuid")) {
+      && request->params() == 1 && request->hasParam("uuid"))
+    {
       String uuid = request->getParam(0)->value();
       if (_plugin->setUuid(uuid.c_str(), _sensor)) {
         _plugin->getSensorJson(&json, _sensor);
@@ -156,7 +156,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
     json["serial"] = buf;
     json["build"] = BUILD;
     json["ssid"] = g_ssid;
-    json["pass"] = g_pass;
+//    json["pass"] = g_pass;
     json["middleware"] = g_middleware;
     json["flash"] = ESP.getFlashChipRealSize();
     json["wifimode"] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
@@ -179,7 +179,7 @@ void handleGetPlugins(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
   
-  StaticJsonBuffer<512> jsonBuffer;
+  DynamicJsonBuffer jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
   for (int8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
@@ -196,8 +196,15 @@ void serveStaticDir(String path)
 {
   Dir dir = SPIFFS.openDir(path);
   while (dir.next()) {
-    DEBUG_SERVER("[webserver] static file: %s\n", dir.fileName().c_str());
-    g_server.serveStatic(dir.fileName().c_str(), SPIFFS, dir.fileName().c_str(), CACHE_HEADER);
+    String file = dir.fileName();
+    if (file.endsWith(".gz")) {
+      file.remove(file.length()-3);
+    }
+    DEBUG_SERVER("[webserver] static file: %s\n", file.c_str());
+delay(100);
+Serial.printf("[webserver] static file: %s\n", file.c_str());
+delay(100);
+    g_server.serveStatic(file.c_str(), SPIFFS, file.c_str(), CACHE_HEADER);
   }
 }
 
@@ -243,7 +250,7 @@ void webserver_start()
   // static
   g_server.serveStatic("/", SPIFFS, "/index.html", CACHE_HEADER);
   g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
-  g_server.serveStatic("/favicon.ico", SPIFFS, "/favicon.ico", CACHE_HEADER);
+  serveStaticDir("/icons");
   serveStaticDir("/img");
   serveStaticDir("/js");
   serveStaticDir("/css");

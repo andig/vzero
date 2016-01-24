@@ -1,6 +1,8 @@
 #include <Arduino.h>
+#include <MD5Builder.h>
 #include <ArduinoJson.h>
 
+#include "../config.h"
 #include "Plugin.h"
 
 
@@ -59,6 +61,18 @@ bool Plugin::getUuid(char* uuid_c, int8_t sensor) {
 
 bool Plugin::setUuid(const char* uuid_c, int8_t sensor) {
   return false;
+}
+
+String Plugin::getHash(int8_t sensor) {
+  char addr_c[32];
+  if (getAddr(&addr_c[0], sensor)) {
+    MD5Builder md5 = ::getHashBuilder();
+    md5.add(getName());
+    md5.add(addr_c);
+    md5.calculate();
+    return md5.toString();
+  }
+  return "";
 }
 
 float Plugin::getValue(int8_t sensor) {

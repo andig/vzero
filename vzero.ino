@@ -29,8 +29,11 @@
 #include <ArduinoOTA.h>
 #endif
 
-extern "C" void system_set_os_print(uint8 onoff);
-extern "C" void ets_install_putc1(void* routine);
+extern "C" {
+  #include "user_interface.h"
+}
+//extern "C" void system_set_os_print(uint8 onoff);
+//extern "C" void ets_install_putc1(void* routine);
 
 // use the internal hardware buffer
 static void _u0_putc(char c){
@@ -51,6 +54,8 @@ void setup()
   DEBUG_CORE("\n\n[core] Booting...\n");
   DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
 
+  DEBUG_CORE("[core] md5 hash:   %s\n", getHash().c_str());
+  
   // set hostname
   net_hostname += "-" + String(ESP.getChipId(), HEX);
   WiFi.hostname(net_hostname);
@@ -158,13 +163,14 @@ void setup()
   webserver_start();
 }
 
+long m;
+
 /**
  * Loop
  */
 void loop()
 {
 #ifdef OTA_SERVER
-    // handle OTA requests
     ArduinoOTA.handle();
 #endif
 
@@ -179,4 +185,11 @@ void loop()
     g_restartTime = 0;
     ESP.restart();
   }
+/*
+  DEBUG_CORE("[core] going to light sleep\n");
+  m = millis();
+  wifi_set_sleep_type(LIGHT_SLEEP_T);
+  delay(20000);
+  DEBUG_CORE("[core] slept for %dms\n", millis()-m);
+*/
 }

@@ -141,9 +141,9 @@ bool OneWirePlugin::getUuid(char* uuid_c, int8_t sensor) {
 }
 
 bool OneWirePlugin::setUuid(const char* uuid_c, int8_t sensor) {
-  if (sensor >= devs || strlen(uuid_c) != 36)
+  if (sensor >= devs)
     return false;
-  if (strlen(devices[sensor].uuid) > 0 && strlen(uuid_c) > 0) // erase before update
+  if (strlen(devices[sensor].uuid) + strlen(uuid_c) != 36) // erase before update
     return false;
   strcpy(devices[sensor].uuid, uuid_c);
   saveConfig();
@@ -178,6 +178,7 @@ void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
   char addr_c[20];
   addrToStr(addr_c, devices[sensor].addr);
   (*json)["addr"] = String(addr_c);
+  (*json)["hash"] = getHash(sensor);
   (*json)["uuid"] = String(devices[sensor].uuid);
   (*json)["value"] = devices[sensor].val;
 }

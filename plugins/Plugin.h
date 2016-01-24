@@ -1,6 +1,7 @@
 #ifndef PLUGIN_H
 #define PLUGIN_H
 
+#include <MD5Builder.h>
 #include <ArduinoJson.h>
 
 // plugin states
@@ -19,6 +20,7 @@ public:
   virtual bool getAddr(char* addr_c, int8_t sensor);
   virtual bool getUuid(char* uuid_c, int8_t sensor);
   virtual bool setUuid(const char* uuid_c, int8_t sensor);
+  virtual String getHash(int8_t sensor);
   virtual float getValue(int8_t sensor);
   virtual void getPluginJson(JsonObject* json);
   virtual void getSensorJson(JsonObject* json, int8_t sensor);

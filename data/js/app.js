@@ -59,52 +59,77 @@ function initializePlugins() {
 				sensor.plugin = plugin.name;
 				sensor.unit = unit;
 				// home screen
-				template(".sensor-home", ".state-home").addClass("sensor-" + plugin.name + "-" + sensor.addr);
+				template(".sensor-home", ".state-home").addClass("sensor-" + sensor.plugin + "-" + sensor.addr);
 				// plugins screen
-				var el = template(".sensor", ".state-sensors").addClass("sensor-" + plugin.name + "-" + sensor.addr);
+				var el = template(".sensor", ".state-sensors").addClass("sensor-" + sensor.plugin + "-" + sensor.addr);
 
-				var sel = $(".sensor-" + plugin.name + "-" + sensor.addr);
+				var sel = $(".sensor-" + sensor.plugin + "-" + sensor.addr);
 				sel.find(".name").text(sensor.addr);
 				sel.find(".value").text(sensor.value);
 				sel.find(".unit").text(sensor.unit);
-
 				if (sensor.uuid) {
 					el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
 				}
 				else {
 					el.find(".sensor-connect").removeClass("hide").data(sensor);
-
 					el.find("input").click(function() {
-						// create middleware channel
-						$.ajax(getMiddleware() + "/channel.json?" + $.param({
-							operation: "add",
-							type: "temperature",
-							title: sensor.addr,
-							style: "lines",
-							resolution: 1
-						}))
-						.done(function(json) {
-							if (json.entity !== undefined && json.entity.uuid !== undefined) {
-								// update sensor uuid
-								sensor.uuid = json.entity.uuid;
-								$.ajax(getSensorApi(sensor) + "?" + $.param({
-									uuid: sensor.uuid
-								}))
-								.done(function(json) {
-									el.find(".sensor-connect").addClass("hide");
-									el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
-									notify("success", "Sensor associated", "The sensor " + sensor.addr + " is now successfully connected. Sensor data will be directly logged to the middleware.")
-								})
-								.fail(function() {
-									notify("error", "Sensor not connected", "Failed to update sensor " + sensor.addr + " with middleware identifier.")
-								});
-							}
-						}).fail(function() {
-							notify("error", "Sensor not connected", "Could not connect sensor " + sensor.addr + " to the middleware.")
-						});
+console.log($(this).data());
+						connectSensor($(this).data());
 					});
 				}
 			});
+		});
+	});
+}
+
+function connectSensor(sensor) {
+	// 1) check if sensor already exists at middleware
+	$.ajax(getMiddleware() + "/iot/" + sensor.hash + ".json")
+	.then(function(json) {
+		if (json.entities === undefined) {
+			// wrong mw version
+			notify("warning", "Middleware failed", "Could not perform middleware operation. Check middleware version (needs d63104b).")
+		}
+		else if (json.entities.length === 1) {
+			// exactly one match
+			return $.Deferred().resolveWith(this, [json.entities[0].uuid]);
+		}
+		// 2) if not create channel
+		return $.ajax(getMiddleware() + "/channel.json?" + $.param({
+			operation: "add",
+			type: "temperature",
+			title: sensor.addr,
+			// owner: sensor.hash,
+			style: "lines",
+			resolution: 1
+		}))
+		.then(function(json) {
+			if (json.entity !== undefined && json.entity.uuid !== undefined) {
+				return $.Deferred().resolveWith(this, [json.entity.uuid]);
+			}
+			notify("error", "Sensor not connected", "Unknown middleware error.")
+			return $.Deferred.reject();
+		}, function() {
+			notify("error", "Sensor not connected", "Could not connect sensor " + sensor.addr + " to the middleware.")
+			return $.Deferred.reject();
+		});
+	}, function() {
+		notify("error", "Middleware error", "Could not connect to middleware.");
+	})
+	.done(function(uuid) {
+		// 3) update sensor config with uuid
+		sensor.uuid = uuid;
+		$.ajax(getSensorApi(sensor) + "?" + $.param({
+			uuid: sensor.uuid
+		}))
+		.done(function(json) {
+			var el = $("sensor-" + sensor.plugin + "-" + sensor.addr);
+			el.find(".sensor-connect").addClass("hide");
+			el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
+			notify("success", "Sensor associated", "The sensor " + sensor.addr + " is now successfully connected. Sensor data will be directly logged to the middleware.")
+		})
+		.fail(function() {
+			notify("error", "Sensor not connected", "Failed to update sensor " + sensor.addr + " with middleware identifier.")
 		});
 	});
 }
@@ -129,7 +154,7 @@ function updateSensors(to) {
 
 function getApi(api) {
 	// return api;
-	return "http://cpuidle.ddns.net:3000" + api;
+	// return "http://cpuidle.ddns.net:3000" + api;
 	return "http://192.168.0.30" + api;
 }
 
@@ -262,8 +287,7 @@ function connectDevice() {
 			$(".state-initial-middleware").removeClass("hide");
 		}
 		else {
-			// menu
-			menu("home");
+			menu(window.location.hash.substr(1) || "home");
 			$(".menu a").click(function() {
 				menu($(this).attr("href").slice(1));
 			});

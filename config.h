@@ -3,6 +3,7 @@
  */
 
 #include <WString.h>
+#include <MD5Builder.h>
 
 /*
  * Defines
@@ -27,7 +28,7 @@ extern uint16_t g_minFreeHeap;
 #define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.printf("[core] heap: %d\n", g_minFreeHeap); }
 #define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
 #else
-#define DEBUG_HEAP if (1==1) {}
+#define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) g_minFreeHeap = ESP.getFreeHeap()
 #define DEBUG_CORE(...)
 #endif
 
@@ -44,6 +45,10 @@ extern String g_pass;
 extern String g_middleware;
 
 void validateFlash();
+
+MD5Builder getHashBuilder();
+String getHash();
+
 bool loadConfig();
 bool saveConfig();
 
