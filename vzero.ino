@@ -43,8 +43,8 @@ static void _u0_putc(char c){
 }
 
 enum operation_t {
-  OPERATION_NORMAL = 0x0,
-  OPERATION_SLEEP =  0x1
+  OPERATION_NORMAL = 0x0, // deep sleep forbidden
+  OPERATION_SLEEP =  0x1  // deep sleep allowed
 };
 
 /**

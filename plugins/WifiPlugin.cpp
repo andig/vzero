@@ -10,8 +10,12 @@
  * Virtual
  */
 
-WifiPlugin::WifiPlugin() {
-  devs = 1;
+WifiPlugin::WifiPlugin() : devices(), devs(1) {
+  File configFile = SPIFFS.open(F("/wifi.config"), "r");
+  if (configFile.size() == sizeof(devices)) {
+    configFile.read((uint8_t*)&devices, sizeof(devices));
+  }
+  configFile.close();
 }
 
 String WifiPlugin::getName() {
@@ -23,7 +27,7 @@ int8_t WifiPlugin::getSensors() {
 }
 
 int8_t WifiPlugin::getSensorByAddr(const char* addr_c) {
-  if (addr_c == "wlan")
+  if (strcmp(addr_c, "wlan") == 0)
     return 0;
   return -1;
 }
@@ -31,7 +35,7 @@ int8_t WifiPlugin::getSensorByAddr(const char* addr_c) {
 bool WifiPlugin::getAddr(char* addr_c, int8_t sensor) {
   if (sensor >= devs)
     return false;
-  addr_c = "wlan";
+  strcpy(addr_c, "wlan");
   return true;
 }
 
@@ -47,18 +51,11 @@ float WifiPlugin::getValue(int8_t sensor) {
   return analogRead(A0) / 1023.0;
 }
 
-void WifiPlugin::getPluginJson(JsonObject* json) {
-  JsonArray& sensorlist = json->createNestedArray("sensors");
-  JsonObject& data = sensorlist.createNestedObject();
-  getSensorJson(&data, 0);
-}
-
 void WifiPlugin::getSensorJson(JsonObject* json, int8_t sensor) {
   if (sensor >= devs)
     return;
-  (*json)["addr"] = "wlan";
-  (*json)["uuid"] = "";
-  (*json)["value"] = WiFi.RSSI();
+  Plugin::getSensorJson(json, sensor);
+  (*json)[F("value")] = WiFi.RSSI();
 }
 
 /**

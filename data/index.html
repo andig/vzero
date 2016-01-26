@@ -132,11 +132,15 @@
 
 			<div class="row template sensor">
 				<div class="medium-2 small-4 columns name"></div>
-				<div class="medium-2 small-2 columns"><span class="value"></span>&nbsp;<span class="unit"></span></div>
-				<div class="medium-8 small-6 columns link"><input type="button" class="button secondary small sensor-connect hide" value="Connect" /></div>
-			</div>
-			<div class="column row template sensor-connect">
-				<input type="button" class="button" value="Connect" />
+				<div class="medium-2 small-2 columns">
+					<span class="value"></span>&nbsp;<span class="unit"></span>
+				</div>
+				<div class="medium-8 small-6 columns">
+					<input type="button" class="button small sensor-monitor hide" value="Monitor" />
+					<input type="button" class="button small sensor-connect hide" value="Connect" />
+					<input type="button" class="button warning small sensor-disconnect hide" value="Disconnect" />
+					<input type="button" class="button alert small sensor-delete hide" value="Delete" />
+				</div>
 			</div>
 		</div>
 
@@ -184,6 +188,22 @@
 		<div class="state-always messages footer-container hide"></div>
 		<div>
 			<div class="template success row">
+				<div class="medium-2 columns"><span class="success label">Success</span></div>
+				<div class="medium-10 columns left"><span class="title"></span>. <span class="message"></div>
+			</div>
+			<div class="template warning row">
+				<div class="medium-2 columns"><span class="warning label">Warning</span></div>
+				<div class="medium-10 columns left"><span class="title"></span>. <span class="message"></div>
+			</div>
+			<div class="template error row">
+				<div class="medium-2 columns"><span class="alert label">Error</span></div>
+				<div class="medium-10 columns left"><span class="title"></span>. <span class="message"></div>
+			</div>
+			<div class="template info row">
+				<div class="medium-2 columns"><span class="secondary label">Log</span></div>
+				<div class="medium-10 columns left"><span class="title"></span>. <span class="message"></div>
+			</div>
+<!-- 			<div class="template success row">
 				<div class="medium-3 columns"><span class="success label">Success</span><span class="title"></span></div>
 				<div class="medium-9 columns left message"></div>
 			</div>
@@ -198,7 +218,7 @@
 			<div class="template info row">
 				<div class="medium-3 columns"><span class="secondary label">Log</span><span class="title"></span></div>
 				<div class="medium-9 columns left message"></div>
-			</div>
+			</div> -->
 		</div>
 	</div>
 

@@ -17,9 +17,9 @@
 
 
 #define MAX_SENSORS 10
-#define UUID_LENGTH 40
 
-struct DeviceStruct {
+
+struct DeviceStructOneWire {
   DeviceAddress addr;
   char uuid[UUID_LENGTH];
   float val;
@@ -42,6 +42,7 @@ public:
   float getValue(int8_t sensor) override;
   void getPluginJson(JsonObject* json) override;
   void getSensorJson(JsonObject* json, int8_t sensor) override;
+  bool saveConfig() override;
   void loop() override;
 
 private:
@@ -49,10 +50,9 @@ private:
   DallasTemperature sensors;
   HTTPClient http;
 
-  DeviceStruct devices[MAX_SENSORS];
+  DeviceStructOneWire devices[MAX_SENSORS];
   int8_t devs;
 
-  bool saveConfig();
   int8_t getSensorIndex(const uint8_t* addr);
   int8_t addSensor(const uint8_t* addr);
   void setupSensors();

@@ -17,12 +17,13 @@ public:
   bool getUuid(char* uuid_c, int8_t sensor) override;
   bool setUuid(const char* uuid_c, int8_t sensor) override;
   float getValue(int8_t sensor) override;
-  void getPluginJson(JsonObject* json) override;
+  // void getPluginJson(JsonObject* json) override;
   void getSensorJson(JsonObject* json, int8_t sensor) override;
   void loop() override;
 
 private:
-   int8_t devs;
+  int8_t devs;
+  DeviceStructSingle devices;
 };
 
 #endif

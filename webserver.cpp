@@ -141,7 +141,7 @@ void handleSettings(AsyncWebServerRequest *request)
   if (result == 200) {
     requestRestart();
   }
-  request->send(result, "text/html", resp);
+  request->send(result, F("text/html"), resp);
 }
 
 /**
@@ -157,21 +157,21 @@ void handleGetStatus(AsyncWebServerRequest *request)
   if (request->hasParam("initial")) {
     char buf[8];
     sprintf(buf, "%06x", ESP.getChipId());
-    json["serial"] = buf;
-    json["build"] = BUILD;
-    json["ssid"] = g_ssid;
-//    json["pass"] = g_pass;
-    json["middleware"] = g_middleware;
-    json["flash"] = ESP.getFlashChipRealSize();
-    json["wifimode"] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
-    json["ip"] = getIP();
+    json[F("serial")] = buf;
+    json[F("build")] = BUILD;
+    json[F("ssid")] = g_ssid;
+    // json[F("pass")] = g_pass;
+    json[F("middleware")] = g_middleware;
+    json[F("flash")] = ESP.getFlashChipRealSize();
+    json[F("wifimode")] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
+    json[F("ip")] = getIP();
   }
 
-  json["uptime"] = millis();
-  json["heap"] = ESP.getFreeHeap();
-  json["minheap"] = g_minFreeHeap;
-  json["resetcode"] = g_resetInfo->reason;
-  // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
+  json[F("uptime")] = millis();
+  json[F("heap")] = ESP.getFreeHeap();
+  json[F("minheap")] = g_minFreeHeap;
+  json[F("resetcode")] = g_resetInfo->reason;
+  // json[F("gpio")] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
 
   jsonResponse(request, 200, json);
 }
@@ -189,7 +189,7 @@ void handleGetPlugins(AsyncWebServerRequest *request)
   for (int8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     JsonObject& obj = json.createNestedObject();
     Plugin* plugin = Plugin::get(pluginIndex);
-    obj["name"] = plugin->getName();
+    obj[F("name")] = plugin->getName();
     plugin->getPluginJson(&obj);
   }
 
@@ -252,10 +252,10 @@ void webserver_start()
   // static
   g_server.serveStatic("/", SPIFFS, "/index.html", CACHE_HEADER);
   g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
-  serveStaticDir("/icons");
-  serveStaticDir("/img");
-  serveStaticDir("/js");
-  serveStaticDir("/css");
+  serveStaticDir(F("/icons"));
+  serveStaticDir(F("/img"));
+  serveStaticDir(F("/js"));
+  serveStaticDir(F("/css"));
 
   // GET
   g_server.on("/settings", HTTP_GET, handleSettings);
@@ -265,7 +265,7 @@ void webserver_start()
   // POST
   g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
-    requestRestart(); 
+    requestRestart();
   });
 
   // sensor api

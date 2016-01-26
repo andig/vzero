@@ -7,6 +7,14 @@
 // plugin states
 #define PLUGIN_IDLE 0
 
+#define UUID_LENGTH 40
+
+
+// simple device struct for devices without sensor address
+struct DeviceStructSingle {
+  char uuid[UUID_LENGTH];
+};
+
 class Plugin {
 public:
   static int8_t count();
@@ -24,15 +32,16 @@ public:
   virtual float getValue(int8_t sensor);
   virtual void getPluginJson(JsonObject* json);
   virtual void getSensorJson(JsonObject* json, int8_t sensor);
+  virtual bool saveConfig();
   virtual void loop();
   virtual uint32_t getMaxSleepDuration();
 
 protected:
   uint32_t _timestamp;
   uint32_t _duration;
-  byte _status;
+  uint8_t _status;
 
-  boolean elapsed(uint32_t duration);
+  bool elapsed(uint32_t duration);
 
 private:
   static int8_t instances;

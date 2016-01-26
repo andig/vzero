@@ -80,15 +80,30 @@ float Plugin::getValue(int8_t sensor) {
 }
 
 void Plugin::getPluginJson(JsonObject* json) {
+  JsonArray& sensorlist = json->createNestedArray(F("sensors"));
+  for (int8_t i=0; i<getSensors(); i++) {
+    JsonObject& data = sensorlist.createNestedObject();
+    getSensorJson(&data, i);
+  }
 }
 
 void Plugin::getSensorJson(JsonObject* json, int8_t sensor) {
+  char buf[UUID_LENGTH];
+  if (getAddr(buf, sensor))
+    (*json)[F("addr")] = String(buf);
+  if (getUuid(buf, sensor))
+    (*json)[F("uuid")] = String(buf);
+  (*json)[F("hash")] = getHash(sensor);
+}
+
+bool Plugin::saveConfig() {
+  return false;
 }
 
 void Plugin::loop() {
 }
 
-boolean Plugin::elapsed(uint32_t duration) {
+bool Plugin::elapsed(uint32_t duration) {
   if (_timestamp == 0 || millis() - _timestamp > duration) {
     _timestamp = millis();
     return true;

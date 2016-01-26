@@ -70,27 +70,47 @@ function initializePlugins() {
 				template(".sensor-home", ".state-home").addClass("sensor-" + sensor.plugin + "-" + sensor.addr);
 				// plugins screen
 				var el = template(".sensor", ".state-sensors").addClass("sensor-" + sensor.plugin + "-" + sensor.addr);
-
-				var sel = $(".sensor-" + sensor.plugin + "-" + sensor.addr);
-				sel.find(".name").text(sensor.addr);
-				sel.find(".value").text(sensor.value);
-				sel.find(".unit").text(sensor.unit);
-				if (sensor.uuid) {
-					el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
-				}
-				else {
-					el.find(".sensor-connect").removeClass("hide").data(sensor);
-					el.find("input").click(function() {
-console.log($(this).data());
-						connectSensor($(this).data());
-					});
-				}
+				updateSensorUI(sensor);
 			});
 		});
 	});
 }
 
+function updateSensorUI(sensor) {
+console.info("updateSensorUI");
+console.log(sensor);
+
+	var el = $(".sensor-" + sensor.plugin + "-" + sensor.addr);
+	el.find(".name").text(sensor.addr);
+	el.find(".value").text(sensor.value);
+	el.find(".unit").text(sensor.unit);
+
+	el.find(".sensor-monitor").unbind().click(function() {
+		// "<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
+		window.open(getFrontend() + "?uuid[]=" + sensor.uuid, "frontend");
+	});
+
+	if (sensor.uuid) {
+		el.find(".sensor-connect").addClass("hide");
+		el.find(".sensor-monitor, .sensor-disconnect, .sensor-delete").removeClass("hide");
+		el.find(".sensor-disconnect").unbind().click(function() {
+			disconnectSensor(sensor);
+		});
+		el.find(".sensor-delete").unbind().click(function() {
+			disconnectSensor(sensor, true);
+		});
+	}
+	else {
+		el.find(".sensor-monitor, .sensor-disconnect, .sensor-delete").addClass("hide");
+		el.find(".sensor-connect").removeClass("hide").unbind().click(function() {
+			connectSensor(sensor);
+		});
+	}
+}
+
 function connectSensor(sensor) {
+console.info("connectSensor");
+console.log(sensor);
 	// 1) check if sensor already exists at middleware
 	$.ajax(getMiddleware() + "/iot/" + sensor.hash + ".json")
 	.then(function(json) {
@@ -103,14 +123,20 @@ function connectSensor(sensor) {
 			return $.Deferred().resolveWith(this, [json.entities[0].uuid]);
 		}
 		// 2) if not create channel
-		return $.ajax(getMiddleware() + "/channel.json?" + $.param({
+		var data = {
 			operation: "add",
 			type: "temperature",
 			title: sensor.addr,
-			// owner: sensor.hash,
 			style: "lines",
 			resolution: 1
-		}))
+		};
+		if (json.entities !== undefined) {
+			// assume recent middleware
+			$.extend(data, {
+				owner: sensor.hash
+			});
+		}
+		return $.ajax(getMiddleware() + "/channel.json?" + $.param(data))
 		.then(function(json) {
 			if (json.entity !== undefined && json.entity.uuid !== undefined) {
 				return $.Deferred().resolveWith(this, [json.entity.uuid]);
@@ -131,14 +157,43 @@ function connectSensor(sensor) {
 			uuid: sensor.uuid
 		}))
 		.done(function(json) {
-			var el = $("sensor-" + sensor.plugin + "-" + sensor.addr);
-			el.find(".sensor-connect").addClass("hide");
-			el.find(".link").html("<a href='" + getFrontend() + "?uuid[]=" + sensor.uuid + "' target='frontend'>Monitor</a>");
-			notify("success", "Sensor associated", "The sensor " + sensor.addr + " is now successfully connected. Sensor data will be directly logged to the middleware.")
+			notify("success", "Sensor associated", "The sensor " + sensor.addr + " is now successfully connected. Sensor data will be directly logged to the middleware.");
+			updateSensorUI(sensor);
 		})
 		.fail(function() {
-			notify("error", "Sensor not connected", "Failed to update sensor " + sensor.addr + " with middleware identifier.")
+			notify("error", "Sensor not connected", "Failed to update sensor " + sensor.addr + " with middleware identifier.");
 		});
+	});
+}
+
+function disconnectSensor(sensor, fullDelete) {
+console.info("disconnectSensor " + fullDelete);
+console.log(sensor);
+
+	var deferred = (fullDelete) ?
+		$.ajax(getMiddleware() + "/channel/" + sensor.uuid + ".json?" + $.param({
+			operation: "delete"
+		})) :
+		$.Deferred().resolveWith(this, [{}]);
+
+	deferred.done(function(json) {
+		if (json.exception !== undefined) {
+			notify("error", "Middleware error", "Could not delete sensor " + sensor.addr + " from middleware. Sensor will be disconnected instead.");
+		}
+		$.ajax(getSensorApi(sensor) + "?" + $.param({
+			uuid: ""
+		}))
+		.done(function(json) {
+			delete sensor.uuid;
+			notify("success", "Sensor disconnected", "The sensor " + sensor.addr + " has been successfully disconnected. Sensor data will no longer be logged to the middleware.");
+			updateSensorUI(sensor);
+		})
+		.fail(function() {
+			notify("error", "Sensor not disconnected", "Failed to delete middleware identifier from sensor " + sensor.addr + ".");
+		});
+	})
+	.fail(function() {
+		notify("error", "Sensor not disconnected", "Could not disconnect sensor " + sensor.addr + " from the middleware.")
 	});
 }
 

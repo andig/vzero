@@ -16,7 +16,7 @@
 #define PLUGIN_REQUESTING 1
 #define PLUGIN_READING 2
 
-#define SLEEP_PERIOD 30 * 1000
+#define SLEEP_PERIOD 60 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
 
 
@@ -78,7 +78,7 @@ OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&o
   File configFile = SPIFFS.open(F("/1wire.config"), "r");
   if (configFile.size() == sizeof(devices)) {
     DEBUG_ONEWIRE("[1wire] reading config file\n");
-    configFile.read(&devices[0].addr[0], sizeof(devices));
+    configFile.read((uint8_t*)devices, sizeof(devices));
   
     // find first empty device slot
     DeviceAddress addr = {};
@@ -121,7 +121,7 @@ int8_t OneWirePlugin::getSensorByAddr(const char* addr_c) {
 bool OneWirePlugin::getAddr(char* addr_c, int8_t sensor) {
   if (sensor >= devs)
     return false;
-  addrToStr(&addr_c[0], devices[sensor].addr);
+  addrToStr((char*)addr_c, devices[sensor].addr);
   return true;
 }
 
@@ -138,8 +138,7 @@ bool OneWirePlugin::setUuid(const char* uuid_c, int8_t sensor) {
   if (strlen(devices[sensor].uuid) + strlen(uuid_c) != 36) // erase before update
     return false;
   strcpy(devices[sensor].uuid, uuid_c);
-  saveConfig();
-  return true;
+  return saveConfig();
 }
 
 float OneWirePlugin::getValue(int8_t sensor) {
@@ -149,30 +148,29 @@ float OneWirePlugin::getValue(int8_t sensor) {
 }
 
 void OneWirePlugin::getPluginJson(JsonObject* json) {
-  JsonObject& config = json->createNestedObject("settings");
-  config["interval"] = 30;
-
-  JsonArray& sensorlist = json->createNestedArray("sensors");
-  char addr_c[20];
-  for (int8_t i=0; i<devs; i++) {
-    addrToStr(addr_c, devices[i].addr);
-    optimistic_yield(OPTIMISTIC_YIELD_TIME);
-
-    JsonObject& data = sensorlist.createNestedObject();
-    getSensorJson(&data, i);
-  }
+  JsonObject& config = json->createNestedObject(F("settings"));
+  config[F("interval")] = 30;
+  Plugin::getPluginJson(json);
 }
 
 void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
   if (sensor >= devs)
     return;
-    
-  char addr_c[20];
-  addrToStr(addr_c, devices[sensor].addr);
-  (*json)["addr"] = String(addr_c);
-  (*json)["hash"] = getHash(sensor);
-  (*json)["uuid"] = String(devices[sensor].uuid);
-  (*json)["value"] = devices[sensor].val;
+  Plugin::getSensorJson(json, sensor);
+  (*json)[F("value")] = devices[sensor].val;
+}
+
+bool OneWirePlugin::saveConfig() {
+  DEBUG_ONEWIRE("[1wire] saving config\n");
+  File configFile = SPIFFS.open(F("/1wire.config"), "w");
+  if (!configFile) {
+    DEBUG_ONEWIRE("[1wire] failed to open config file for writing\n");
+    return false;
+  }
+
+  configFile.write((uint8_t*)devices, sizeof(devices));
+  configFile.close();
+  return true;
 }
 
 /**
@@ -207,7 +205,7 @@ void OneWirePlugin::setupSensors() {
   for (int8_t i=0; i<sensors.getDeviceCount(); i++) {
     if (sensors.getAddress(addr, i)) {
       char addr_c[20];
-      addrToStr(&addr_c[0], addr);
+      addrToStr((char*)addr_c, addr);
       DEBUG_ONEWIRE("[1wire] device: %s ", addr_c);
 
       int8_t sensorIndex = getSensorIndex(addr);
@@ -232,18 +230,6 @@ void OneWirePlugin::setupSensors() {
 /*
  * Private
  */
-bool OneWirePlugin::saveConfig() {
-  DEBUG_ONEWIRE("[1wire] saving config\n");
-  File configFile = SPIFFS.open(F("/1wire.config"), "w");
-  if (!configFile) {
-    DEBUG_ONEWIRE("[1wire] failed to open config file for writing\n");
-    return false;
-  }
-  
-  configFile.write(&devices[0].addr[0], sizeof(devices));
-  configFile.close();
-  return true;
-}
 
 int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
   for (int8_t i=0; i<devs; ++i) {
@@ -292,7 +278,7 @@ void OneWirePlugin::upload() {
       else
         dtostrf(val, -4, 2, val_c);
 
-      String uri = g_middleware + "/data/" + String(uuid_c) + ".json?value=" + String(val_c);
+      String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
       http.begin(uri);
       int httpCode = http.POST("");
       if (httpCode > 0) {
