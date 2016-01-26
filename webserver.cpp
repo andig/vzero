@@ -30,11 +30,17 @@ AsyncWebServer g_server(80);
 unsigned long g_restartTime = 0;
 
 
+void touch()
+{
+  g_lastAccess = millis();
+}
+
 void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
 {
   char buffer[512];
   json.printTo(buffer, sizeof(buffer));
 
+  touch(); // track last access
   request->send(res, "application/json", buffer);
 }
 
@@ -212,7 +218,7 @@ void registerPlugins()
 {
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     Plugin* plugin = Plugin::get(pluginIndex);
-    DEBUG_SERVER("[webserver] registering plugin: %s ", plugin->getName().c_str());
+    DEBUG_SERVER("[webserver] plugin: %s\n", plugin->getName().c_str());
 
     // register one handler per sensor
     String baseUri = "/api/" + plugin->getName() + "/";

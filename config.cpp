@@ -13,9 +13,10 @@
 // default AP SSID
 const char* ap_default_ssid = "VZERO";
 
-// hostname prefix
+// global vars
 String net_hostname = "vzero";
 rst_info* g_resetInfo;
+uint32_t g_lastAccess;
 
 // global settings
 String g_ssid = "";
@@ -84,13 +85,6 @@ bool loadConfig()
   size_t size = configFile.size();
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
-/*   
-  char *buf = (char*)malloc(configFile.size()+1);
-  if (!buf) 
-    return false;
-  configFile.read((uint8_t *)buf, configFile.size());
-  buf[configFile.size()] = '\0';
-*/
   configFile.close();
 
   String arg;
@@ -104,7 +98,7 @@ bool loadConfig()
   if (arg) g_middleware = arg;
 
   DEBUG_CORE("[core] config ssid:   %s\n", g_ssid.c_str());
-  DEBUG_CORE("[core] config psk:    %s\n", g_pass.c_str());
+  // DEBUG_CORE("[core] config psk:    %s\n", g_pass.c_str());
   DEBUG_CORE("[core] middleware:    %s\n", g_middleware.c_str());
   
   return true;

@@ -19,7 +19,6 @@
 #define SLEEP_PERIOD 30 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
 
-#define OPTIMISTIC_YIELD_TIME 16000
 
 /*
  * Static
@@ -216,8 +215,8 @@ void OneWirePlugin::setupSensors() {
         DEBUG_ONEWIRE("(known)\n");
       }
       else {
-        DEBUG_ONEWIRE("(new)\n");
         sensorIndex = addSensor(addr);
+        DEBUG_ONEWIRE("(new at %d)\n", sensorIndex);
       }
 
       // set precision

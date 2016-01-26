@@ -34,10 +34,51 @@ extern "C" {
 //extern "C" void system_set_os_print(uint8 onoff);
 //extern "C" void ets_install_putc1(void* routine);
 
-// use the internal hardware buffer
+/**
+ * Use the internal hardware buffer
+ */
 static void _u0_putc(char c){
   while(((U0S >> USTXC) & 0x7F) == 0x7F);
   U0F = c;
+}
+
+enum operation_t {
+  OPERATION_NORMAL = 0x0,
+  OPERATION_SLEEP =  0x1
+};
+
+/**
+ * Get operation mode
+ *
+ * Return NORMAL if:
+ *   - deep sleep disabled
+ *   - cold start
+ *   - no WiFi connection
+ */
+operation_t getOperationMode()
+{
+#ifndef DEEP_SLEEP
+  return OPERATION_NORMAL;
+#endif
+  if (g_resetInfo->reason != REASON_DEEP_SLEEP_WAKE)
+    return OPERATION_NORMAL;
+  if (WiFi.getMode() & WIFI_STA == 0)
+    return OPERATION_NORMAL;
+  return OPERATION_SLEEP;
+}
+
+/**
+ * (Re)connect WiFi - give ESP 10 seconds to connect to station
+ */
+wl_status_t wifiConnect() {
+  DEBUG_CORE("[wifi] waiting for connection");
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < WIFI_CONNECT_TIMEOUT) {
+    DEBUG_CORE(".");
+    delay(100);
+  }
+  DEBUG_CORE("\n");
+  return WiFi.status();
 }
 
 /**
@@ -50,6 +91,9 @@ uint32_t getDeepSleepDurationMs()
 #else
   // don't sleep if access point
   if (WiFi.getMode() & WIFI_STA == 0)
+    return 0;
+  // don't sleep if client connected
+  if (millis() - g_lastAccess < WIFI_CLIENT_TIMEOUT)
     return 0;
   // check if deep sleep possible
   uint32_t maxSleep = -1; // max uint32_t
@@ -68,7 +112,6 @@ uint32_t getDeepSleepDurationMs()
   return maxSleep - SLEEP_SAFETY_MARGIN;
 #endif
 }
-
 
 /**
  * Setup
@@ -108,44 +151,28 @@ void setup()
   }
 
   DEBUG_CORE("[wifi] current ssid:  %s\n", WiFi.SSID().c_str());
-  DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
+  // DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
 
-  // load wifi connection information
-  if (!loadConfig()) {
-    DEBUG_CORE("[wifi] no wifi config found.\n");
-  }
-
-  // compare file config with sdk config
-  if (g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
-    DEBUG_CORE("[wifi] wifi config changed\n");
-
-    // try to connect to configured station
+  // try connect to configured station
+  if (loadConfig() && g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
   }
   else {
     // connect to sdk-configured station
+    DEBUG_CORE("[wifi] no wifi config found\n");
     WiFi.begin();
   }
 
-  // give ESP 10 seconds to connect to station
-  DEBUG_CORE("[wifi] waiting for connection");
-  unsigned long startTime = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
-    DEBUG_CORE(".");
-    delay(100);
-  }
-  DEBUG_CORE("\n");
-
   // Check connection
-  if (WiFi.status() == WL_CONNECTED) {
+  if (wifiConnect() == WL_CONNECTED) {
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
     // start MDNS
-    if (!MDNS.begin(net_hostname.c_str())) {
-      DEBUG_CORE("[core] error setting up mDNS responder\n");
-    }
-    else {
-      DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
+    if (getOperationMode() == OPERATION_NORMAL) {
+      if (MDNS.begin(net_hostname.c_str()))
+        DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
+      else
+        DEBUG_CORE("[core] error setting up mDNS responder\n");
     }
   }
   else {
@@ -159,21 +186,9 @@ void setup()
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
   }
 
-#ifdef OTA_SERVER
-  // start OTA server
-  DEBUG_CORE("[core] starting OTA server\n");
-  ArduinoOTA.setHostname(net_hostname.c_str());
-  ArduinoOTA.onStart([]() {
-    DEBUG_CORE("[core] OTA Start\n");
-  });
-  ArduinoOTA.onEnd([]() {
-    DEBUG_CORE("[core] OTA End\n");
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    DEBUG_CORE("[core] OTA Error [%u]\n", error);
-  });
-  ArduinoOTA.begin();
-#endif
+  // start webserver after plugins
+  system_set_os_print(1);
+  system_show_malloc();
 
   // start plugins
   DEBUG_CORE("[core] starting plugins\n");
@@ -187,10 +202,26 @@ void setup()
   new WifiPlugin();
 #endif
 
-  // start webserver after plugins
-  system_set_os_print(1);
-  system_show_malloc();
-  webserver_start();
+  // start OTA and web server if not in battery mode
+  if (getOperationMode() == OPERATION_NORMAL) {
+#ifdef OTA_SERVER
+    // start OTA server
+    DEBUG_CORE("[core] starting OTA server\n");
+    ArduinoOTA.setHostname(net_hostname.c_str());
+    ArduinoOTA.onStart([]() {
+      DEBUG_CORE("[core] OTA Start\n");
+    });
+    ArduinoOTA.onEnd([]() {
+      DEBUG_CORE("[core] OTA End\n");
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      DEBUG_CORE("[core] OTA Error [%u]\n", error);
+    });
+    ArduinoOTA.begin();
+#endif
+
+    webserver_start();
+  }
 }
 
 /**
@@ -199,7 +230,9 @@ void setup()
 void loop()
 {
 #ifdef OTA_SERVER
-  ArduinoOTA.handle();
+  if (getOperationMode() == OPERATION_NORMAL) {
+    ArduinoOTA.handle();
+  }
 #endif
 
   // call plugin's loop method
@@ -213,7 +246,6 @@ void loop()
     DEBUG_CORE("[core] going to deep sleep for %ums\n", sleep);
     ESP.deepSleep(sleep * 1000);
   }
-  delay(100);
 
   // trigger restart?
   if (g_restartTime > 0 && millis() >= g_restartTime) {
@@ -221,6 +253,16 @@ void loop()
     g_restartTime = 0;
     ESP.restart();
   }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    DEBUG_CORE("[core] wifi connection lost\n");
+    if (wifiConnect() != WL_CONNECTED) {
+      DEBUG_CORE("[core] could not reconnect wifi - restarting\n");
+      ESP.reset();
+    }
+  }
+
+  delay(100);
 /*
   DEBUG_CORE("[core] going to light sleep\n");
   m = millis();

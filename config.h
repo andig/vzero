@@ -13,13 +13,15 @@
 //#define SPIFFS_EDITOR
 
 // enable deep sleep
-// #define DEEP_SLEEP
+#define DEEP_SLEEP
 // wakeup 5 seconds earlier
 #define SLEEP_SAFETY_MARGIN 1 * 1000
 // minimum deep sleep duration (must be bigger than SLEEP_SAFETY_MARGIN)
 #define MIN_SLEEP_DURATION_MS 20 * 1000
 // duration after boot during which no deep sleep can happen
 #define STARTUP_ONLINE_DURATION_MS 120 * 1000
+// client disconnect timeout
+#define WIFI_CLIENT_TIMEOUT 120 * 1000
 
 // included plugins
 #define PLUGIN_ONEWIRE
@@ -29,7 +31,12 @@
 // plugin settings
 #define ONEWIRE_PIN 14
 
-#define BUILD "0.2a"   // version
+// other defines
+#define BUILD "0.3.0"   // version
+#define REASON_DEEP_SLEEP_WAKE 5
+#define WIFI_CONNECT_TIMEOUT 10000
+#define OPTIMISTIC_YIELD_TIME 16000
+
 
 #ifdef DEBUG
 extern uint16_t g_minFreeHeap;
@@ -46,8 +53,9 @@ extern const char* ap_default_ssid; // default SSID
 extern const char* ap_default_psk;  // default PSK
 
 // global vars
-extern rst_info* g_resetInfo;
 extern String net_hostname;
+extern rst_info* g_resetInfo;
+extern uint32_t g_lastAccess;
 
 // global settings
 extern String g_ssid;
