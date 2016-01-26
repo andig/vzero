@@ -15,6 +15,7 @@ const char* ap_default_ssid = "VZERO";
 
 // hostname prefix
 String net_hostname = "vzero";
+rst_info* g_resetInfo;
 
 // global settings
 String g_ssid = "";
@@ -80,20 +81,21 @@ bool loadConfig()
   File configFile = SPIFFS.open(F("/config.json"), "r");
   if (!configFile)
     return false;
+  size_t size = configFile.size();
+  std::unique_ptr<char[]> buf(new char[size]);
+  configFile.readBytes(buf.get(), size);
+/*   
   char *buf = (char*)malloc(configFile.size()+1);
   if (!buf) 
     return false;
   configFile.read((uint8_t *)buf, configFile.size());
   buf[configFile.size()] = '\0';
-/*
-  Serial.printf("%d ", configFile.size());
-  Serial.printf("%s\n", buf);
 */
   configFile.close();
 
   String arg;
   StaticJsonBuffer<512> jsonBuffer;
-  JsonObject& json = jsonBuffer.parseObject(buf);
+  JsonObject& json = jsonBuffer.parseObject(buf.get());
   arg = json["ssid"].asString();
   if (arg) g_ssid = arg;
   arg = json["password"].asString();

@@ -34,7 +34,7 @@ void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
 {
   char buffer[512];
   json.printTo(buffer, sizeof(buffer));
-  
+
   request->send(res, "application/json", buffer);
 }
 
@@ -50,7 +50,7 @@ public:
       return false;
     return true;
   }
-  
+
   void handleRequest(AsyncWebServerRequest *request) {
     DynamicJsonBuffer jsonBuffer;
     JsonObject& json = jsonBuffer.createObject();
@@ -65,9 +65,8 @@ public:
       }
     }
     // POST
-    else if ((request->method() == HTTP_POST || request->method() == HTTP_GET) 
-      && request->params() == 1 && request->hasParam("uuid"))
-    {
+    else if ((request->method() == HTTP_POST || request->method() == HTTP_GET)
+      && request->params() == 1 && request->hasParam("uuid")) {
       String uuid = request->getParam(0)->value();
       if (_plugin->setUuid(uuid.c_str(), _sensor)) {
         _plugin->getSensorJson(&json, _sensor);
@@ -100,7 +99,7 @@ void requestRestart()
 void handleSettings(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  
+
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>");
   String ssid = "";
   String pass = "";
@@ -134,7 +133,7 @@ void handleSettings(AsyncWebServerRequest *request)
   }
   resp += F("</body></html>");
   if (result == 200) {
-    requestRestart(); 
+    requestRestart();
   }
   request->send(result, "text/html", resp);
 }
@@ -148,7 +147,6 @@ void handleGetStatus(AsyncWebServerRequest *request)
 
   StaticJsonBuffer<512> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
-  rst_info* resetInfo = ESP.getResetInfoPtr();
 
   if (request->hasParam("initial")) {
     char buf[8];
@@ -166,9 +164,9 @@ void handleGetStatus(AsyncWebServerRequest *request)
   json["uptime"] = millis();
   json["heap"] = ESP.getFreeHeap();
   json["minheap"] = g_minFreeHeap;
-  json["resetcode"] = resetInfo->reason;
+  json["resetcode"] = g_resetInfo->reason;
   // json["gpio"] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
-  
+
   jsonResponse(request, 200, json);
 }
 
@@ -178,7 +176,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
 void handleGetPlugins(AsyncWebServerRequest *request)
 {
   DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
-  
+
   DynamicJsonBuffer jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
@@ -194,22 +192,20 @@ void handleGetPlugins(AsyncWebServerRequest *request)
 
 void serveStaticDir(String path)
 {
+  DEBUG_SERVER("[webserver] static dir: %s\n", path.c_str());
   Dir dir = SPIFFS.openDir(path);
   while (dir.next()) {
     String file = dir.fileName();
     if (file.endsWith(".gz")) {
       file.remove(file.length()-3);
     }
-    DEBUG_SERVER("[webserver] static file: %s\n", file.c_str());
-delay(100);
-Serial.printf("[webserver] static file: %s\n", file.c_str());
-delay(100);
+    // DEBUG_SERVER("[webserver] static file: %s\n", file.c_str());
     g_server.serveStatic(file.c_str(), SPIFFS, file.c_str(), CACHE_HEADER);
   }
 }
 
-/** 
- * Setup handlers for each plugin and sensor 
+/**
+ * Setup handlers for each plugin and sensor
  * Structure is /api/<plugin>/<sensor>
  */
 void registerPlugins()
@@ -225,7 +221,7 @@ void registerPlugins()
       char addr_c[20];
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
-      DEBUG_SERVER("%s\n", uri.c_str());
+      DEBUG_SERVER("[webserver] sensor: %s\n", uri.c_str());
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
@@ -259,11 +255,11 @@ void webserver_start()
   g_server.on("/settings", HTTP_GET, handleSettings);
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
-  
+
   // POST
   g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
-    requestRestart();
+    requestRestart(); 
   });
 
   // sensor api

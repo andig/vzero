@@ -13,6 +13,14 @@ hashCode = function(str) {
   return hash;
 };
 
+function ajax(url, settings) {
+	var log = (settings.data) ? url + "<br/>" + JSON.stringify(settings.data) : url;
+	var hash = notify("info", "API Log", log, true);
+	return $.ajax(url, settings).done(function(json) {
+		$("." + hash + " .message").html($("." + hash + " .message").html() + "<br/>" + JSON.stringify(json));
+	});
+}
+
 function template(tpl, target) {
 	return $(".template" + tpl).clone().removeClass("template").appendTo(target);
 }
@@ -238,12 +246,13 @@ function heartBeat(to, initial) {
 	});
 }
 
-function notify(type, title, message) {
-	var hash = "hash-" + hashCode(message),
-		el = $("." + hash);
+function notify(type, title, message, force) {
+	var hash = "hash" + hashCode(message);
+	if (force) hash += Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+	var el = $("." + hash);
 	if (el.length > 0) {
 		el.data({created: Date.now()});
-		return;
+		return hash;
 	}
 	// unhide message area
 	$(".footer-container").removeClass("hide");
@@ -251,6 +260,7 @@ function notify(type, title, message) {
 	el = template("." + type, ".messages").addClass(hash).data({created: Date.now()});
 	el.find(".title").text(title);
 	el.find(".message").text(message);
+	return hash;
 }
 
 function menu(sel) {

@@ -28,7 +28,7 @@ header p {
 	bottom: 0px;
 	width: 100%;
 	height: auto;
-	max-height: 6rem;
+	max-height: 9rem;
 	padding: 0.5rem 0 0.5rem 0;
 	vertical-align: bottom;
 	border-top: 1px solid #CACACA;
@@ -45,4 +45,7 @@ div.state-menu {
 }
 .content {
 	display: none;
+}
+.info .message {
+	font-family: consolas;
 }

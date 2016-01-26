@@ -10,8 +10,16 @@
  */
 #define DEBUG
 #define OTA_SERVER
-
 //#define SPIFFS_EDITOR
+
+// enable deep sleep
+// #define DEEP_SLEEP
+// wakeup 5 seconds earlier
+#define SLEEP_SAFETY_MARGIN 1 * 1000
+// minimum deep sleep duration (must be bigger than SLEEP_SAFETY_MARGIN)
+#define MIN_SLEEP_DURATION_MS 20 * 1000
+// duration after boot during which no deep sleep can happen
+#define STARTUP_ONLINE_DURATION_MS 120 * 1000
 
 // included plugins
 #define PLUGIN_ONEWIRE
@@ -37,12 +45,15 @@ extern uint16_t g_minFreeHeap;
 extern const char* ap_default_ssid; // default SSID
 extern const char* ap_default_psk;  // default PSK
 
+// global vars
+extern rst_info* g_resetInfo;
 extern String net_hostname;
 
 // global settings
 extern String g_ssid;
 extern String g_pass;
 extern String g_middleware;
+
 
 void validateFlash();
 

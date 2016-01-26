@@ -16,7 +16,7 @@
 #define PLUGIN_REQUESTING 1
 #define PLUGIN_READING 2
 
-#define SLEEP_PERIOD 10 * 1000
+#define SLEEP_PERIOD 30 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
 
 #define OPTIMISTIC_YIELD_TIME 16000
@@ -29,10 +29,10 @@ unsigned long hex2int(const char *a, unsigned int len)
 {
   unsigned long val = 0;
   for (int i=0; i<len; i++) {
-  if (a[i] <= 57)
-    val += (a[i]-48)*(1<<(4*(len-1-i)));
-  else
-    val += (a[i]-55)*(1<<(4*(len-1-i)));
+    if (a[i] <= 57)
+      val += (a[i]-48)*(1<<(4*(len-1-i)));
+    else
+      val += (a[i]-55)*(1<<(4*(len-1-i)));
   }
   return val;
 }
@@ -89,18 +89,11 @@ OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&o
   }
   configFile.close();
 
-  int8_t devsConfigured = devs;
-
   // locate devices on the bus
   DEBUG_ONEWIRE("[1wire] looking for 1-Wire devices...\n");
   sensors.begin();
   sensors.setWaitForConversion(false);
   setupSensors();
-
-  // found new devices?
-  if (devsConfigured != devs) {
-    saveConfig();
-  }
 
   // report parasite power
   DEBUG_ONEWIRE("[1wire] parasite power: %s\n", (sensors.isParasitePowerMode()) ? "on" : "off");
@@ -187,12 +180,15 @@ void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
  * Loop (idle -> requesting -> reading)
  */
 void OneWirePlugin::loop() {
+  // DEBUG_ONEWIRE("[1wire] status: %d\n", _status);
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD)) {
+    // DEBUG_ONEWIRE("[1wire] idle -> requesting\n");
     _status = PLUGIN_REQUESTING;
 
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
+    // DEBUG_ONEWIRE("[1wire] requesting -> reading\n");
     _status = PLUGIN_READING;
 
     readTemperatures();
@@ -201,6 +197,7 @@ void OneWirePlugin::loop() {
       upload();
     }
     _status = PLUGIN_IDLE;
+    // DEBUG_ONEWIRE("[1wire] reading -> idle\n");
   }
 }
 

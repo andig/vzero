@@ -2,7 +2,6 @@
  * VZero - Zero Config Volkszaehler Controller
  *
  * @author Andreas Goetz <cpuidle@gmx.de>
- * Based on works by Pascal Gollor (http://www.pgollor.de/cms/)
  */
 
 #include <ESP8266WiFi.h>
@@ -42,6 +41,36 @@ static void _u0_putc(char c){
 }
 
 /**
+ * Get max deep sleep window in ms
+ */
+uint32_t getDeepSleepDurationMs()
+{
+#ifndef DEEP_SLEEP
+  return 0;
+#else
+  // don't sleep if access point
+  if (WiFi.getMode() & WIFI_STA == 0)
+    return 0;
+  // check if deep sleep possible
+  uint32_t maxSleep = -1; // max uint32_t
+  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
+    uint32_t sleep = Plugin::get(pluginIndex)->getMaxSleepDuration();
+    // DEBUG_CORE("[core] sleep window is %u for %s\n", sleep, Plugin::get(pluginIndex)->getName().c_str());
+    if (sleep < maxSleep)
+      maxSleep = sleep;
+  }
+  // valid sleep window found?
+  if (maxSleep == -1 || maxSleep < MIN_SLEEP_DURATION_MS)
+    return 0;
+  // not during initial startup?
+  if (g_resetInfo->reason != 5 && millis() < STARTUP_ONLINE_DURATION_MS)
+    return 0;
+  return maxSleep - SLEEP_SAFETY_MARGIN;
+#endif
+}
+
+
+/**
  * Setup
  */
 void setup()
@@ -49,13 +78,13 @@ void setup()
   Serial.begin(115200);
   // hardware serial
   ets_install_putc1((void *) &_u0_putc);
-  system_set_os_print(1);
+  system_set_os_print(0);
+  g_resetInfo = ESP.getResetInfoPtr();
 
   DEBUG_CORE("\n\n[core] Booting...\n");
+  DEBUG_CORE("[core] Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
   DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
 
-  DEBUG_CORE("[core] md5 hash:   %s\n", getHash().c_str());
-  
   // set hostname
   net_hostname += "-" + String(ESP.getChipId(), HEX);
   WiFi.hostname(net_hostname);
@@ -72,7 +101,7 @@ void setup()
     return;
   }
 
-  // Check WiFi connection
+  // check WiFi connection
   if (WiFi.getMode() != WIFI_STA) {
     WiFi.mode(WIFI_STA);
     delay(10);
@@ -80,7 +109,7 @@ void setup()
 
   DEBUG_CORE("[wifi] current ssid:  %s\n", WiFi.SSID().c_str());
   DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
-  
+
   // load wifi connection information
   if (!loadConfig()) {
     DEBUG_CORE("[wifi] no wifi config found.\n");
@@ -98,9 +127,8 @@ void setup()
     WiFi.begin();
   }
 
-  DEBUG_CORE("[wifi] waiting for connection");
-
   // give ESP 10 seconds to connect to station
+  DEBUG_CORE("[wifi] waiting for connection");
   unsigned long startTime = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
     DEBUG_CORE(".");
@@ -158,12 +186,12 @@ void setup()
 #ifdef PLUGIN_WIFI
   new WifiPlugin();
 #endif
-  
+
   // start webserver after plugins
+  system_set_os_print(1);
+  system_show_malloc();
   webserver_start();
 }
-
-long m;
 
 /**
  * Loop
@@ -171,13 +199,21 @@ long m;
 void loop()
 {
 #ifdef OTA_SERVER
-    ArduinoOTA.handle();
+  ArduinoOTA.handle();
 #endif
 
   // call plugin's loop method
   for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
     Plugin::get(pluginIndex)->loop();
   }
+
+  // check we deep sleep possible
+  uint32_t sleep = getDeepSleepDurationMs();
+  if (sleep > 0) {
+    DEBUG_CORE("[core] going to deep sleep for %ums\n", sleep);
+    ESP.deepSleep(sleep * 1000);
+  }
+  delay(100);
 
   // trigger restart?
   if (g_restartTime > 0 && millis() >= g_restartTime) {

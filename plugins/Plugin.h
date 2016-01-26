@@ -9,8 +9,8 @@
 
 class Plugin {
 public:
-  static byte count();
-  static Plugin* get(byte idx);
+  static int8_t count();
+  static Plugin* get(int8_t idx);
 
   Plugin();
   virtual ~Plugin();
@@ -25,15 +25,17 @@ public:
   virtual void getPluginJson(JsonObject* json);
   virtual void getSensorJson(JsonObject* json, int8_t sensor);
   virtual void loop();
+  virtual uint32_t getMaxSleepDuration();
 
 protected:
-  long _timestamp;
+  uint32_t _timestamp;
+  uint32_t _duration;
   byte _status;
 
-  boolean elapsed(long duration);
+  boolean elapsed(uint32_t duration);
 
 private:
-  static byte instances;
+  static int8_t instances;
   static Plugin* plugins[];
 };
 
