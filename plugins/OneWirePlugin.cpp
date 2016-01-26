@@ -71,24 +71,24 @@ void OneWirePlugin::strToAddr(const char* ptr, uint8_t* addr) {
  * Virtual
  */
 
-OneWirePlugin::OneWirePlugin(byte pin) : devices(), devs(0), ow(pin), sensors(&ow) {
+OneWirePlugin::OneWirePlugin(byte pin) : _devices(), ow(pin), sensors(&ow) {
   // allow reuse (if server supports it)
   http.setReuse(true);
 
   File configFile = SPIFFS.open(F("/1wire.config"), "r");
-  if (configFile.size() == sizeof(devices)) {
+  if (configFile.size() == sizeof(_devices)) {
     DEBUG_ONEWIRE("[1wire] reading config file\n");
-    configFile.read((uint8_t*)devices, sizeof(devices));
+    configFile.read((uint8_t*)_devices, sizeof(_devices));
   
     // find first empty device slot
     DeviceAddress addr = {};
     char addr_c[20];
     addrToStr(addr_c, addr);
-    devs = getSensorByAddr(addr_c) + 1;
+    _devs = getSensorByAddr(addr_c) + 1;
   }
   configFile.close();
 
-  // locate devices on the bus
+  // locate _devices on the bus
   DEBUG_ONEWIRE("[1wire] looking for 1-Wire devices...\n");
   sensors.begin();
   sensors.setWaitForConversion(false);
@@ -102,16 +102,12 @@ String OneWirePlugin::getName() {
   return "1wire";
 }
 
-int8_t OneWirePlugin::getSensors() {
-  return devs;
-}
-
 int8_t OneWirePlugin::getSensorByAddr(const char* addr_c) {
   DeviceAddress addr;
   strToAddr(addr_c, addr);
 
-  for (int8_t i=0; i<devs; i++) {
-    if (addrCompare(addr, devices[i].addr)) {
+  for (int8_t i=0; i<_devs; i++) {
+    if (addrCompare(addr, _devices[i].addr)) {
       return i;
     }
   }
@@ -119,32 +115,32 @@ int8_t OneWirePlugin::getSensorByAddr(const char* addr_c) {
 }
 
 bool OneWirePlugin::getAddr(char* addr_c, int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return false;
-  addrToStr((char*)addr_c, devices[sensor].addr);
+  addrToStr((char*)addr_c, _devices[sensor].addr);
   return true;
 }
 
 bool OneWirePlugin::getUuid(char* uuid_c, int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return false;
-  strcpy(uuid_c, devices[sensor].uuid);
+  strcpy(uuid_c, _devices[sensor].uuid);
   return true;
 }
 
 bool OneWirePlugin::setUuid(const char* uuid_c, int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return false;
-  if (strlen(devices[sensor].uuid) + strlen(uuid_c) != 36) // erase before update
+  if (strlen(_devices[sensor].uuid) + strlen(uuid_c) != 36) // erase before update
     return false;
-  strcpy(devices[sensor].uuid, uuid_c);
+  strcpy(_devices[sensor].uuid, uuid_c);
   return saveConfig();
 }
 
 float OneWirePlugin::getValue(int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return NAN;
-  return devices[sensor].val;
+  return _devices[sensor].val;
 }
 
 void OneWirePlugin::getPluginJson(JsonObject* json) {
@@ -154,10 +150,10 @@ void OneWirePlugin::getPluginJson(JsonObject* json) {
 }
 
 void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return;
   Plugin::getSensorJson(json, sensor);
-  (*json)[F("value")] = devices[sensor].val;
+  (*json)[F("value")] = _devices[sensor].val;
 }
 
 bool OneWirePlugin::saveConfig() {
@@ -168,7 +164,7 @@ bool OneWirePlugin::saveConfig() {
     return false;
   }
 
-  configFile.write((uint8_t*)devices, sizeof(devices));
+  configFile.write((uint8_t*)_devices, sizeof(_devices));
   configFile.close();
   return true;
 }
@@ -222,8 +218,8 @@ void OneWirePlugin::setupSensors() {
     }
   }
 
-  for (int8_t i=0; i<devs; i++) {
-    devices[i].val = NAN;
+  for (int8_t i=0; i<_devs; i++) {
+    _devices[i].val = NAN;
   }
 }
 
@@ -232,8 +228,8 @@ void OneWirePlugin::setupSensors() {
  */
 
 int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
-  for (int8_t i=0; i<devs; ++i) {
-    if (addrCompare(addr, devices[i].addr)) {
+  for (int8_t i=0; i<_devs; ++i) {
+    if (addrCompare(addr, _devices[i].addr)) {
       return i;
     }
   }
@@ -241,30 +237,30 @@ int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
 }
 
 int8_t OneWirePlugin::addSensor(const uint8_t* addr) {
-  if (devs >= MAX_SENSORS) {
+  if (_devs >= MAX_SENSORS) {
     DEBUG_ONEWIRE("[1wire] too many devices\n");
     return -1;
   }
   for (uint8_t i=0; i<8; i++) {
-    devices[devs].addr[i] = addr[i];
+    _devices[_devs].addr[i] = addr[i];
   }
-  return(devs++);
+  return(_devs++);
 }
 
 void OneWirePlugin::readTemperatures() {
-  for (int8_t i=0; i<devs; i++) {
-    devices[i].val = sensors.getTempC(devices[i].addr);
+  for (int8_t i=0; i<_devs; i++) {
+    _devices[i].val = sensors.getTempC(_devices[i].addr);
     optimistic_yield(OPTIMISTIC_YIELD_TIME);
 
-    if (devices[i].val == DEVICE_DISCONNECTED_C) {
-      DEBUG_ONEWIRE("[1wire] device %s disconnected\n", devices[i].addr);
+    if (_devices[i].val == DEVICE_DISCONNECTED_C) {
+      DEBUG_ONEWIRE("[1wire] device %s disconnected\n", _devices[i].addr);
       continue;
     }
   }
 }
 
 void OneWirePlugin::upload() {
-  for (int8_t i=0; i<devs; i++) {
+  for (int8_t i=0; i<_devs; i++) {
     char uuid_c[40];
     getUuid(uuid_c, i);
 

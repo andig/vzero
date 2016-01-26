@@ -77,9 +77,6 @@ function initializePlugins() {
 }
 
 function updateSensorUI(sensor) {
-console.info("updateSensorUI");
-console.log(sensor);
-
 	var el = $(".sensor-" + sensor.plugin + "-" + sensor.addr);
 	el.find(".name").text(sensor.addr);
 	el.find(".value").text(sensor.value);
@@ -109,8 +106,6 @@ console.log(sensor);
 }
 
 function connectSensor(sensor) {
-console.info("connectSensor");
-console.log(sensor);
 	// 1) check if sensor already exists at middleware
 	$.ajax(getMiddleware() + "/iot/" + sensor.hash + ".json")
 	.then(function(json) {
@@ -125,7 +120,7 @@ console.log(sensor);
 		// 2) if not create channel
 		var data = {
 			operation: "add",
-			type: "temperature",
+			type: getSensorType(sensor.plugin),
 			title: sensor.addr,
 			style: "lines",
 			resolution: 1
@@ -167,9 +162,6 @@ console.log(sensor);
 }
 
 function disconnectSensor(sensor, fullDelete) {
-console.info("disconnectSensor " + fullDelete);
-console.log(sensor);
-
 	var deferred = (fullDelete) ?
 		$.ajax(getMiddleware() + "/channel/" + sensor.uuid + ".json?" + $.param({
 			operation: "delete"
@@ -213,6 +205,19 @@ function updateSensors(to) {
 	.fail(function() {
 		notify("warning", "No connection", "Could not update sensors from VZero.");
 	});
+}
+
+function getSensorType(plugin) {
+	switch (plugin) {
+		case "1wire":
+			return "temperature";
+		case "analog":
+			return "voltage";
+		case "wifi":
+			return "rssi";
+		default:
+			return "powersensor";
+	}
 }
 
 function getApi(api) {

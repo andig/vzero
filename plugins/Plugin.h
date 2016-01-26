@@ -40,6 +40,7 @@ protected:
   uint32_t _timestamp;
   uint32_t _duration;
   uint8_t _status;
+  int8_t _devs;
 
   bool elapsed(uint32_t duration);
 

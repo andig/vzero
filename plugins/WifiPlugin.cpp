@@ -10,20 +10,11 @@
  * Virtual
  */
 
-WifiPlugin::WifiPlugin() : devices(), devs(1) {
-  File configFile = SPIFFS.open(F("/wifi.config"), "r");
-  if (configFile.size() == sizeof(devices)) {
-    configFile.read((uint8_t*)&devices, sizeof(devices));
-  }
-  configFile.close();
+WifiPlugin::WifiPlugin() {
 }
 
 String WifiPlugin::getName() {
   return "wifi";
-}
-
-int8_t WifiPlugin::getSensors() {
-  return devs;
 }
 
 int8_t WifiPlugin::getSensorByAddr(const char* addr_c) {
@@ -33,29 +24,14 @@ int8_t WifiPlugin::getSensorByAddr(const char* addr_c) {
 }
 
 bool WifiPlugin::getAddr(char* addr_c, int8_t sensor) {
-  if (sensor >= devs)
+  if (sensor >= _devs)
     return false;
   strcpy(addr_c, "wlan");
   return true;
 }
 
-bool WifiPlugin::getUuid(char* uuid_c, int8_t sensor) {
-  return false;
-}
-
-bool WifiPlugin::setUuid(const char* uuid_c, int8_t sensor) {
-  return false;
-}
-
 float WifiPlugin::getValue(int8_t sensor) {
-  return analogRead(A0) / 1023.0;
-}
-
-void WifiPlugin::getSensorJson(JsonObject* json, int8_t sensor) {
-  if (sensor >= devs)
-    return;
-  Plugin::getSensorJson(json, sensor);
-  (*json)[F("value")] = WiFi.RSSI();
+  return WiFi.RSSI();
 }
 
 /**

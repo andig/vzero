@@ -34,7 +34,6 @@ public:
 
   OneWirePlugin(byte pin);
   String getName() override;
-  int8_t getSensors() override;
   int8_t getSensorByAddr(const char* addr_c) override;
   bool getAddr(char* addr_c, int8_t sensor) override;
   bool getUuid(char* uuid_c, int8_t sensor) override;
@@ -49,9 +48,7 @@ private:
   OneWire ow;
   DallasTemperature sensors;
   HTTPClient http;
-
-  DeviceStructOneWire devices[MAX_SENSORS];
-  int8_t devs;
+  DeviceStructOneWire _devices[MAX_SENSORS];
 
   int8_t getSensorIndex(const uint8_t* addr);
   int8_t addSensor(const uint8_t* addr);

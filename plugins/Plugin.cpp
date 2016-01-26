@@ -22,7 +22,7 @@ int8_t Plugin::count() {
 
 Plugin* Plugin::get(int8_t idx) {
   if (idx < Plugin::instances) {
-    return Plugin::plugins[idx];  
+    return Plugin::plugins[idx];
   }
   return NULL;
 }
@@ -32,7 +32,7 @@ Plugin* Plugin::get(int8_t idx) {
  * Virtual
  */
 
-Plugin::Plugin() : _status(PLUGIN_IDLE), _timestamp(0), _duration(0) {
+Plugin::Plugin() : _devs(0), _status(PLUGIN_IDLE), _timestamp(0), _duration(0) {
   Plugin::plugins[Plugin::instances++] = this;
 }
 
@@ -44,7 +44,7 @@ String Plugin::getName() {
 }
 
 int8_t Plugin::getSensors() {
-  return 0;
+  return _devs;
 }
 
 int8_t Plugin::getSensorByAddr(const char* addr_c) {
