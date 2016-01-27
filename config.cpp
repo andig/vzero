@@ -16,7 +16,6 @@ const char* ap_default_ssid = "VZERO";
 // global vars
 String net_hostname = "vzero";
 rst_info* g_resetInfo;
-uint32_t g_lastAccess;
 
 // global settings
 String g_ssid = "";

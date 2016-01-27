@@ -25,14 +25,21 @@ extern "C" {
 
 #define CACHE_HEADER "max-age=86400"
 
+
+uint32_t g_restartTime = 0;
+uint32_t g_lastAccessTime = 0;
+
 AsyncWebServer g_server(80);
 
-unsigned long g_restartTime = 0;
 
+void requestRestart()
+{
+  g_restartTime = millis() + 100;
+}
 
 void touch()
 {
-  g_lastAccess = millis();
+  g_lastAccessTime = millis();
 }
 
 void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
@@ -92,11 +99,6 @@ String getIP()
 {
   IPAddress ip = (WiFi.getMode() == WIFI_STA) ? WiFi.localIP() : WiFi.softAPIP();
   return String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
-}
-
-void requestRestart()
-{
-  g_restartTime = millis() + 100;
 }
 
 /**

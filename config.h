@@ -6,11 +6,14 @@
 #include <MD5Builder.h>
 
 /*
- * Defines
+ * Configuration
  */
 #define DEBUG
 #define OTA_SERVER
-//#define SPIFFS_EDITOR
+#define PLUGIN_ONEWIRE
+#define PLUGIN_ANALOG
+#define PLUGIN_WIFI
+// #define SPIFFS_EDITOR
 
 // enable deep sleep
 #define DEEP_SLEEP
@@ -23,17 +26,11 @@
 // client disconnect timeout
 #define WIFI_CLIENT_TIMEOUT 120 * 1000
 
-// included plugins
-#define PLUGIN_ONEWIRE
-#define PLUGIN_ANALOG
-#define PLUGIN_WIFI
-
 // plugin settings
 #define ONEWIRE_PIN 14
 
 // other defines
 #define BUILD "0.3.0"   // version
-#define REASON_DEEP_SLEEP_WAKE 5
 #define WIFI_CONNECT_TIMEOUT 10000
 #define OPTIMISTIC_YIELD_TIME 16000
 
@@ -55,7 +52,6 @@ extern const char* ap_default_psk;  // default PSK
 // global vars
 extern String net_hostname;
 extern rst_info* g_resetInfo;
-extern uint32_t g_lastAccess;
 
 // global settings
 extern String g_ssid;

@@ -5,7 +5,6 @@
  */
 
 #include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
 #include <FS.h>
 
 #include "config.h"
@@ -25,6 +24,7 @@
 #endif
 
 #ifdef OTA_SERVER
+#include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #endif
 
@@ -60,7 +60,7 @@ operation_t getOperationMode()
 #ifndef DEEP_SLEEP
   return OPERATION_NORMAL;
 #endif
-  if (g_resetInfo->reason != REASON_DEEP_SLEEP_WAKE)
+  if (g_resetInfo->reason != REASON_DEEP_SLEEP_AWAKE)
     return OPERATION_NORMAL;
   if (WiFi.getMode() & WIFI_STA == 0)
     return OPERATION_NORMAL;
@@ -93,7 +93,7 @@ uint32_t getDeepSleepDurationMs()
   if (WiFi.getMode() & WIFI_STA == 0)
     return 0;
   // don't sleep if client connected
-  if (millis() - g_lastAccess < WIFI_CLIENT_TIMEOUT)
+  if (millis() - g_lastAccessTime < WIFI_CLIENT_TIMEOUT)
     return 0;
   // check if deep sleep possible
   uint32_t maxSleep = -1; // max uint32_t
@@ -118,8 +118,8 @@ uint32_t getDeepSleepDurationMs()
  */
 void setup()
 {
-  Serial.begin(115200);
   // hardware serial
+  Serial.begin(115200);
   ets_install_putc1((void *) &_u0_putc);
   system_set_os_print(0);
   g_resetInfo = ESP.getResetInfoPtr();
@@ -159,7 +159,7 @@ void setup()
   }
   else {
     // connect to sdk-configured station
-    DEBUG_CORE("[wifi] no wifi config found\n");
+    DEBUG_CORE("[wifi] reconnecting to previous network\n");
     WiFi.begin();
   }
 
@@ -167,6 +167,7 @@ void setup()
   if (wifiConnect() == WL_CONNECTED) {
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
+#ifdef OTA_SERVER
     // start MDNS
     if (getOperationMode() == OPERATION_NORMAL) {
       if (MDNS.begin(net_hostname.c_str()))
@@ -174,10 +175,11 @@ void setup()
       else
         DEBUG_CORE("[core] error setting up mDNS responder\n");
     }
+#endif
   }
   else {
     // go into AP mode
-    DEBUG_CORE("[wifi] could connect to WiFi- going into AP mode\n");
+    DEBUG_CORE("[wifi] could not connect to WiFi - going into AP mode\n");
 
     WiFi.mode(WIFI_AP); // WIFI_AP_STA
     delay(10);
@@ -188,7 +190,7 @@ void setup()
 
   // start webserver after plugins
   system_set_os_print(1);
-  system_show_malloc();
+  // system_show_malloc();
 
   // start plugins
   DEBUG_CORE("[core] starting plugins\n");
@@ -256,9 +258,10 @@ void loop()
 
   if (WiFi.status() != WL_CONNECTED) {
     DEBUG_CORE("[core] wifi connection lost\n");
+    WiFi.reconnect();
     if (wifiConnect() != WL_CONNECTED) {
       DEBUG_CORE("[core] could not reconnect wifi - restarting\n");
-      ESP.reset();
+      ESP.restart();
     }
   }
 

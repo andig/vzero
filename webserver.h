@@ -11,11 +11,12 @@
 #endif
 
 
-// Restart will be triggert on this time
-extern unsigned long g_restartTime;
+// timestamp to trigger restart on
+extern uint32_t g_restartTime;
+// timestamp of last client access
+extern uint32_t g_lastAccessTime;
 
 /**
  * Start web server
  */
 void webserver_start();
-

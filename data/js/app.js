@@ -262,7 +262,7 @@ function heartBeat(to, initial) {
 	.done(function(json) {
 		// [0: "DEFAULT", 1: "WDT", 2: "EXCEPTION", 3: "SOFT_WDT", 4: "SOFT_RESTART", 5: "DEEP_SLEEP_AWAKE", 6: "EXT_SYS_RST"]
 		if (json.resetcode == 1 || json.resetcode == 3) {
-			notify("error", "Unexpected restart", "The VZero has experienced an unexpected restart, caused by the built-in watch dog timer.");
+			notify("error", "Unexpected restart", "The VZero has experienced an unexpected restart, triggered by the built-in watch dog timer.");
 		}
 		else if (json.resetcode == 2) {
 			notify("error", "Unexpected restart", "The VZero has experienced an unexpected restart, caused by an exception.");
@@ -335,6 +335,10 @@ function connectDevice() {
 	heartBeat(5000, true).done(function(json) {
 		$('.loader').remove();
 		$('.content > *').unwrap();
+
+		var addr = "http://vzero-" + json.serial + ".local";
+		$("a.address").text(addr);
+		$("a.address").attr("href", addr);
 
 		$('title').text($('title').text() + " (" + json.serial + ")");
 		$('.ip').text(json.ip);
