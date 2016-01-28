@@ -1,13 +1,25 @@
 #ifndef PLUGIN_H
 #define PLUGIN_H
 
-#include <MD5Builder.h>
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
+#include "../config.h"
+
 
 // plugin states
 #define PLUGIN_IDLE 0
+#define PLUGIN_UPLOADING 1
 
 #define UUID_LENGTH 40
+
+
+#ifdef DEBUG
+#define DEBUG_PLUGIN(...) ets_printf( __VA_ARGS__ )
+#else
+#define DEBUG_PLUGIN(...)
+#endif
 
 
 // simple device struct for devices without sensor address
@@ -41,7 +53,9 @@ protected:
   uint32_t _duration;
   uint8_t _status;
   int8_t _devs;
+  HTTPClient http;
 
+  virtual void upload();
   bool elapsed(uint32_t duration);
 
 private:

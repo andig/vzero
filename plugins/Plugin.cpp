@@ -1,8 +1,5 @@
 #include <Arduino.h>
 #include <MD5Builder.h>
-#include <ArduinoJson.h>
-
-#include "../config.h"
 #include "Plugin.h"
 
 
@@ -101,6 +98,36 @@ bool Plugin::saveConfig() {
 }
 
 void Plugin::loop() {
+}
+
+void Plugin::upload() {
+  if (g_middleware == "")
+    return;
+
+  char uuid_c[UUID_LENGTH];
+  for (int8_t i=0; i<_devs; i++) {
+    // uuid configured?
+    getUuid(uuid_c, i);
+    if (strlen(uuid_c) > 0) {
+      float val = getValue(i);
+
+      char val_c[16];
+      if (isnan(val))
+        strcpy(val_c, "null");
+      else
+        dtostrf(val, -4, 2, val_c);
+
+      String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
+      http.begin(uri);
+      int httpCode = http.POST("");
+      if (httpCode > 0) {
+        http.getString();
+        DEBUG_HEAP;
+      }
+      DEBUG_PLUGIN("[%s] upload %d %s\n", getName().c_str(), httpCode, uri.c_str());
+      http.end();
+    }
+  }
 }
 
 bool Plugin::elapsed(uint32_t duration) {

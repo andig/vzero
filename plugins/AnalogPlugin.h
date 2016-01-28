@@ -1,9 +1,6 @@
 #ifndef ANALOG_PLUGIN_H
 #define ANALOG_PLUGIN_H
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
-
 #include "SimplePlugin.h"
 
 

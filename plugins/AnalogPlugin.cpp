@@ -1,7 +1,3 @@
-#include <Arduino.h>
-#include <FS.h>
-#include <ArduinoJson.h>
-
 #include "AnalogPlugin.h"
 
 

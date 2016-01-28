@@ -1,7 +1,4 @@
-#include <Arduino.h>
 #include <FS.h>
-#include <ArduinoJson.h>
-
 #include "SimplePlugin.h"
 
 
@@ -41,10 +38,24 @@ void SimplePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
 }
 
 bool SimplePlugin::saveConfig() {
+  DEBUG_PLUGIN("[%s] saving config\n", getName().c_str());
   File configFile = SPIFFS.open("/" + getName() + ".config", "w");
   if (!configFile)
     return false;
   configFile.write((uint8_t*)&_devices, sizeof(_devices));
   configFile.close();
   return true;
+}
+
+/**
+ * Loop (idle -> uploading)
+ */
+void SimplePlugin::loop() {
+  if (_status == PLUGIN_IDLE && elapsed(60*1000)) {
+    _status = PLUGIN_UPLOADING;
+    if (WiFi.status() == WL_CONNECTED) {
+      upload();
+    }
+    _status = PLUGIN_IDLE;
+  }
 }

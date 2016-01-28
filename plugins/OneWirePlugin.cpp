@@ -1,20 +1,11 @@
-#include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
 #include <FS.h>
-#include <ArduinoJson.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
-
-#include "../config.h"
 #include "OneWirePlugin.h"
 
 
 #define TEMPERATURE_PRECISION 9
 
 // plugin states
-#define PLUGIN_REQUESTING 1
-#define PLUGIN_READING 2
+#define PLUGIN_REQUESTING PLUGIN_UPLOADING + 1
 
 #define SLEEP_PERIOD 60 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
@@ -182,7 +173,7 @@ void OneWirePlugin::loop() {
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
     // DEBUG_ONEWIRE("[1wire] requesting -> reading\n");
-    _status = PLUGIN_READING;
+    _status = PLUGIN_UPLOADING;
 
     readTemperatures();
 
@@ -255,34 +246,6 @@ void OneWirePlugin::readTemperatures() {
     if (_devices[i].val == DEVICE_DISCONNECTED_C) {
       DEBUG_ONEWIRE("[1wire] device %s disconnected\n", _devices[i].addr);
       continue;
-    }
-  }
-}
-
-void OneWirePlugin::upload() {
-  for (int8_t i=0; i<_devs; i++) {
-    char uuid_c[40];
-    getUuid(uuid_c, i);
-
-    // uuid configured?
-    if (strlen(uuid_c) > 0) {
-      float val = getValue(i);
-
-      char val_c[16];
-      if (isnan(val))
-        strcpy(val_c, "null");
-      else
-        dtostrf(val, -4, 2, val_c);
-
-      String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
-      http.begin(uri);
-      int httpCode = http.POST("");
-      if (httpCode > 0) {
-        http.getString();
-        DEBUG_HEAP;
-      }
-      DEBUG_ONEWIRE("[1wire] upload %d %s\n", httpCode, uri.c_str());
-      http.end();
     }
   }
 }

@@ -1,9 +1,6 @@
 #ifndef WIFI_PLUGIN_H
 #define WIFI_PLUGIN_H
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
-
 #include "SimplePlugin.h"
 
 

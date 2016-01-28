@@ -1,9 +1,6 @@
 #ifndef SIMPLE_PLUGIN_H
 #define SIMPLE_PLUGIN_H
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
-
 #include "Plugin.h"
 
 
@@ -18,6 +15,7 @@ public:
   bool setUuid(const char* uuid_c, int8_t sensor) override;
   void getSensorJson(JsonObject* json, int8_t sensor) override;
   bool saveConfig() override;
+  void loop() override;
 
 protected:
   DeviceStructSimple _devices;

@@ -16,7 +16,7 @@
 // #define SPIFFS_EDITOR
 
 // enable deep sleep
-#define DEEP_SLEEP
+// #define DEEP_SLEEP
 // wakeup 5 seconds earlier
 #define SLEEP_SAFETY_MARGIN 1 * 1000
 // minimum deep sleep duration (must be bigger than SLEEP_SAFETY_MARGIN)

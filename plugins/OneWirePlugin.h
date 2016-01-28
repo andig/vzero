@@ -1,16 +1,13 @@
 #ifndef ONEWIRE_PLUGIN_H
 #define ONEWIRE_PLUGIN_H
 
-#include <Arduino.h>
-#include <ESP8266HTTPClient.h>
-#include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
 #include "Plugin.h"
 
+
 #ifdef DEBUG
-#define DEBUG_ONEWIRE(...) Serial.printf( __VA_ARGS__ )
+#define DEBUG_ONEWIRE(...) ets_printf( __VA_ARGS__ )
 #else
 #define DEBUG_ONEWIRE(...)
 #endif
@@ -47,14 +44,12 @@ public:
 private:
   OneWire ow;
   DallasTemperature sensors;
-  HTTPClient http;
   DeviceStructOneWire _devices[MAX_SENSORS];
 
   int8_t getSensorIndex(const uint8_t* addr);
   int8_t addSensor(const uint8_t* addr);
   void setupSensors();
   void readTemperatures();
-  void upload();
 };
 
 #endif
