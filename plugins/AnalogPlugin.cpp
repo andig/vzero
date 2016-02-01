@@ -28,9 +28,3 @@ bool AnalogPlugin::getAddr(char* addr_c, int8_t sensor) {
 float AnalogPlugin::getValue(int8_t sensor) {
   return analogRead(A0) / 1023.0;
 }
-
-/**
- * Loop
- */
-void AnalogPlugin::loop() {
-}

@@ -15,6 +15,10 @@
 #include "plugins/OneWirePlugin.h"
 #endif
 
+#ifdef PLUGIN_DHT
+#include "plugins/DHTPlugin.h"
+#endif
+
 #ifdef PLUGIN_ANALOG
 #include "plugins/AnalogPlugin.h"
 #endif
@@ -30,16 +34,6 @@
 
 extern "C" {
   #include "user_interface.h"
-}
-//extern "C" void system_set_os_print(uint8 onoff);
-//extern "C" void ets_install_putc1(void* routine);
-
-/**
- * Use the internal hardware buffer
- */
-static void _u0_putc(char c){
-  while(((U0S >> USTXC) & 0x7F) == 0x7F);
-  U0F = c;
 }
 
 enum operation_t {
@@ -120,8 +114,6 @@ void setup()
 {
   // hardware serial
   Serial.begin(115200);
-  ets_install_putc1((void *) &_u0_putc);
-  system_set_os_print(0);
   g_resetInfo = ESP.getResetInfoPtr();
 
   DEBUG_CORE("\n\n[core] Booting...\n");
@@ -197,6 +189,9 @@ void setup()
 #ifdef PLUGIN_ONEWIRE
   new OneWirePlugin(ONEWIRE_PIN);
 #endif
+#ifdef PLUGIN_DHT
+  new DHTPlugin(DHT_PIN, DHT_TYPE);
+#endif
 #ifdef PLUGIN_ANALOG
   new AnalogPlugin();
 #endif
@@ -225,6 +220,9 @@ void setup()
     webserver_start();
   }
 }
+
+long print = 0;
+long heap = 0;
 
 /**
  * Loop
@@ -265,6 +263,13 @@ void loop()
     }
   }
 
+  if (millis() - print > 10000 && heap != ESP.getFreeHeap()) {
+    heap = ESP.getFreeHeap();
+    if (heap < g_minFreeHeap)
+      g_minFreeHeap = heap;
+    DEBUG_CORE("[core] heap/min: %d / %d\n", heap, g_minFreeHeap);
+    print = millis();
+  }
   delay(100);
 /*
   DEBUG_CORE("[core] going to light sleep\n");

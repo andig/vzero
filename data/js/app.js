@@ -54,6 +54,10 @@ function initializePlugins() {
 				plugin.title = "WiFi";
 				el.find(".description").html("WiFi plugin measures the received signal strength indicator (RSSI) if the WiFi signal.");
 			}
+			else {
+				unit = "";
+				plugin.title = plugin.name;
+			}
 			el.find(".name, .title").text(plugin.title);
 
 			if (json && json.length) {
@@ -207,10 +211,15 @@ function updateSensors(to) {
 	});
 }
 
-function getSensorType(plugin) {
+function getSensorType(plugin, sensor) {
 	switch (plugin) {
 		case "1wire":
 			return "temperature";
+		case "dht":
+			if (sensor == 0)
+				return "temperature";
+			else
+				return "humidity";
 		case "analog":
 			return "voltage";
 		case "wifi":

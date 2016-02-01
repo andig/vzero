@@ -9,6 +9,8 @@
 SimplePlugin::SimplePlugin() : _devices() {
   _devs = 1;
   File configFile = SPIFFS.open("/" + getName() + ".config", "r");
+  DEBUG_PLUGIN("[%s] sizes %d %d \n", getName().c_str(), configFile.size(), sizeof(_devices));
+
   if (configFile.size() == sizeof(_devices))
     configFile.read((uint8_t*)&_devices, sizeof(_devices));
   configFile.close();
@@ -40,8 +42,10 @@ void SimplePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
 bool SimplePlugin::saveConfig() {
   DEBUG_PLUGIN("[%s] saving config\n", getName().c_str());
   File configFile = SPIFFS.open("/" + getName() + ".config", "w");
-  if (!configFile)
+  if (!configFile) {
+    DEBUG_PLUGIN("[%s] failed to open config file for writing\n", getName().c_str());
     return false;
+  }
   configFile.write((uint8_t*)&_devices, sizeof(_devices));
   configFile.close();
   return true;

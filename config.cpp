@@ -23,7 +23,7 @@ String g_pass = "";
 String g_middleware = "";
 
 // global variables
-uint16_t g_minFreeHeap = 65535;
+uint32_t g_minFreeHeap = -1;
 
 /**
  * Validate physical flash settings vs IDE

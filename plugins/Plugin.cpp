@@ -111,18 +111,18 @@ void Plugin::upload() {
     if (strlen(uuid_c) > 0) {
       float val = getValue(i);
 
-      char val_c[16];
       if (isnan(val))
-        strcpy(val_c, "null");
-      else
-        dtostrf(val, -4, 2, val_c);
+        break;
+
+      char val_c[16];
+      dtostrf(val, -4, 2, val_c);
 
       String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
       http.begin(uri);
       int httpCode = http.POST("");
       if (httpCode > 0) {
         http.getString();
-        DEBUG_HEAP;
+        DEBUG_HEAP();
       }
       DEBUG_PLUGIN("[%s] upload %d %s\n", getName().c_str(), httpCode, uri.c_str());
       http.end();
@@ -131,7 +131,7 @@ void Plugin::upload() {
 }
 
 bool Plugin::elapsed(uint32_t duration) {
-  if (_timestamp == 0 || millis() - _timestamp > duration) {
+  if (_timestamp == 0 || millis() - _timestamp >= duration) {
     _timestamp = millis();
     return true;
   }

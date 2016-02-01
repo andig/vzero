@@ -98,7 +98,7 @@ protected:
 String getIP()
 {
   IPAddress ip = (WiFi.getMode() == WIFI_STA) ? WiFi.localIP() : WiFi.softAPIP();
-  return String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
+  return ip.toString();
 }
 
 /**
@@ -241,10 +241,6 @@ void registerPlugins()
  */
 void webserver_start()
 {
-#ifdef SPIFFS_EDITOR
-  g_server.addHandler(new SPIFFSEditor("", ""));
-#endif
-
   // not found
   g_server.onNotFound([](AsyncWebServerRequest *request) {
     DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
@@ -272,6 +268,10 @@ void webserver_start()
 
   // sensor api
   registerPlugins();
+
+#ifdef SPIFFS_EDITOR
+  g_server.addHandler(new SPIFFSEditor());
+#endif
 
   // start server
   g_server.begin();

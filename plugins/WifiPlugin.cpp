@@ -28,9 +28,3 @@ bool WifiPlugin::getAddr(char* addr_c, int8_t sensor) {
 float WifiPlugin::getValue(int8_t sensor) {
   return WiFi.RSSI();
 }
-
-/**
- * Loop
- */
-void WifiPlugin::loop() {
-}

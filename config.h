@@ -10,10 +10,11 @@
  */
 #define DEBUG
 #define OTA_SERVER
-#define PLUGIN_ONEWIRE
+// #define PLUGIN_ONEWIRE
+// #define PLUGIN_DHT
 #define PLUGIN_ANALOG
-#define PLUGIN_WIFI
-// #define SPIFFS_EDITOR
+// #define PLUGIN_WIFI
+#define SPIFFS_EDITOR
 
 // enable deep sleep
 // #define DEEP_SLEEP
@@ -28,6 +29,8 @@
 
 // plugin settings
 #define ONEWIRE_PIN 14
+#define DHT_PIN 14
+#define DHT_TYPE DHT11
 
 // other defines
 #define BUILD "0.3.0"   // version
@@ -36,11 +39,11 @@
 
 
 #ifdef DEBUG
-extern uint16_t g_minFreeHeap;
-#define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.printf("[core] heap: %d\n", g_minFreeHeap); }
+extern uint32_t g_minFreeHeap;
+#define DEBUG_HEAP() if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.printf("[core] heap/min: %d\n", g_minFreeHeap); }
 #define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
 #else
-#define DEBUG_HEAP if (ESP.getFreeHeap() < g_minFreeHeap) g_minFreeHeap = ESP.getFreeHeap()
+#define DEBUG_HEAP() if (ESP.getFreeHeap() < g_minFreeHeap) g_minFreeHeap = ESP.getFreeHeap()
 #define DEBUG_CORE(...)
 #endif
 
