@@ -1,43 +1,52 @@
 #include <Arduino.h>
 #include <MD5Builder.h>
+#include <FS.h>
 #include "Plugin.h"
 
 
-#define MAX_PLUGINS 3
-
-int8_t Plugin::instances = 0;
-Plugin* Plugin::plugins[MAX_PLUGINS] = {};
+#define MAX_PLUGINS 5
 
 
 /*
  * Static
  */
 
-int8_t Plugin::count() {
-  return Plugin::instances;
-}
+int8_t Plugin::instances = 0;
+Plugin* Plugin::plugins[MAX_PLUGINS] = {};
+HTTPClient Plugin::http;
 
-Plugin* Plugin::get(int8_t idx) {
-  if (idx < Plugin::instances) {
-    return Plugin::plugins[idx];
+void Plugin::each(CallbackFunction callback) {
+  for (int8_t i=0; i<Plugin::instances; i++) {
+    callback(Plugin::plugins[i]);
   }
-  return NULL;
 }
-
 
 /*
  * Virtual
  */
 
-Plugin::Plugin() : _devs(0), _status(PLUGIN_IDLE), _timestamp(0), _duration(0) {
+Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDevices),
+  _status(PLUGIN_IDLE), _timestamp(0), _duration(0)
+{
   Plugin::plugins[Plugin::instances++] = this;
+  Plugin::http.setReuse(true); // allow reuse (if server supports it)
+
+  // buffer size
+  _size = maxDevices * sizeof(DeviceStruct);
+
+  if (maxDevices > 0) {
+    DEBUG_PLUGIN("[abstract]: alloc %d -> %d\n", maxDevices, _size);
+    _devices = (DeviceStruct*)malloc(_size);
+    if (_devices == NULL)
+      panic();
+  }
 }
 
 Plugin::~Plugin() {
 }
 
 String Plugin::getName() {
-  return "generic";
+  return "abstract";
 }
 
 int8_t Plugin::getSensors() {
@@ -53,11 +62,19 @@ bool Plugin::getAddr(char* addr_c, int8_t sensor) {
 }
 
 bool Plugin::getUuid(char* uuid_c, int8_t sensor) {
-  return false;
+  if (sensor >= _devs)
+    return false;
+  strcpy(uuid_c, _devices[sensor].uuid);
+  return true;
 }
 
 bool Plugin::setUuid(const char* uuid_c, int8_t sensor) {
-  return false;
+  if (sensor >= _devs)
+    return false;
+  if (strlen(_devices[sensor].uuid) + strlen(uuid_c) != UUID_LENGTH) // erase before update
+    return false;
+  strcpy(_devices[sensor].uuid, uuid_c);
+  return saveConfig();
 }
 
 String Plugin::getHash(int8_t sensor) {
@@ -85,16 +102,43 @@ void Plugin::getPluginJson(JsonObject* json) {
 }
 
 void Plugin::getSensorJson(JsonObject* json, int8_t sensor) {
-  char buf[UUID_LENGTH];
+  char buf[UUID_LENGTH+1];
   if (getAddr(buf, sensor))
     (*json)[F("addr")] = String(buf);
   if (getUuid(buf, sensor))
     (*json)[F("uuid")] = String(buf);
+
+  float val = getValue(sensor);
+  if (isnan(val))
+    (*json)[F("value")] = NULL;
+  else
+    (*json)[F("value")] = val;
+
   (*json)[F("hash")] = getHash(sensor);
 }
 
+bool Plugin::loadConfig() {
+  DEBUG_PLUGIN("[%s] load config %d\n", getName().c_str(), _size);
+  File configFile = SPIFFS.open("/" + getName() + ".config", "r");
+  if (configFile.size() == _size)
+    configFile.read((uint8_t*)_devices, _size);
+  for (int8_t sensor = 0; sensor<getSensors(); sensor++)
+    if (strlen(_devices[sensor].uuid) != UUID_LENGTH)
+      _devices[sensor].uuid[0] = '\0';
+  configFile.close();
+  return true;
+}
+
 bool Plugin::saveConfig() {
-  return false;
+  DEBUG_PLUGIN("[%s] save config %d\n", getName().c_str(), _size);
+  File configFile = SPIFFS.open("/" + getName() + ".config", "w");
+  if (!configFile) {
+    DEBUG_PLUGIN("[%s] failed to open config file for writing\n", getName().c_str());
+    return false;
+  }
+  configFile.write((uint8_t*)_devices, _size);
+  configFile.close();
+  return true;
 }
 
 void Plugin::loop() {
@@ -104,17 +148,20 @@ void Plugin::upload() {
   if (g_middleware == "")
     return;
 
-  char uuid_c[UUID_LENGTH];
-  for (int8_t i=0; i<_devs; i++) {
+  char uuid_c[UUID_LENGTH+1];
+  char val_c[16];
+
+
+  for (int8_t i=0; i<getSensors(); i++) {
     // uuid configured?
     getUuid(uuid_c, i);
     if (strlen(uuid_c) > 0) {
+      DEBUG_PLUGIN("[%s] upload\n", getName().c_str());
       float val = getValue(i);
 
       if (isnan(val))
         break;
 
-      char val_c[16];
       dtostrf(val, -4, 2, val_c);
 
       String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);

@@ -5,7 +5,8 @@
  * Virtual
  */
 
-WifiPlugin::WifiPlugin() {
+WifiPlugin::WifiPlugin() : Plugin(1, 1) {
+  loadConfig();
 }
 
 String WifiPlugin::getName() {
@@ -27,4 +28,17 @@ bool WifiPlugin::getAddr(char* addr_c, int8_t sensor) {
 
 float WifiPlugin::getValue(int8_t sensor) {
   return WiFi.RSSI();
+}
+
+/**
+ * Loop (idle -> uploading)
+ */
+void WifiPlugin::loop() {
+  if (_status == PLUGIN_IDLE && elapsed(10*1000)) {
+    _status = PLUGIN_UPLOADING;
+    if (WiFi.status() == WL_CONNECTED) {
+      upload();
+    }
+    _status = PLUGIN_IDLE;
+  }
 }

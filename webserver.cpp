@@ -7,6 +7,7 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
 
 #include "config.h"
 #include "webserver.h"
@@ -37,18 +38,14 @@ void requestRestart()
   g_restartTime = millis() + 100;
 }
 
-void touch()
-{
-  g_lastAccessTime = millis();
-}
-
 void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
 {
-  char buffer[512];
-  json.printTo(buffer, sizeof(buffer));
+  // touch
+  g_lastAccessTime = millis();
 
-  touch(); // track last access
-  request->send(res, "application/json", buffer);
+  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  json.printTo(*response);
+  request->send(response);
 }
 
 class PluginRequestHandler : public AsyncWebHandler {
@@ -188,12 +185,11 @@ void handleGetPlugins(AsyncWebServerRequest *request)
   DynamicJsonBuffer jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
 
-  for (int8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
+  Plugin::each([&json](Plugin* plugin) {
     JsonObject& obj = json.createNestedObject();
-    Plugin* plugin = Plugin::get(pluginIndex);
     obj[F("name")] = plugin->getName();
     plugin->getPluginJson(&obj);
-  }
+  });
 
   jsonResponse(request, 200, json);
 }
@@ -218,8 +214,7 @@ void serveStaticDir(String path)
  */
 void registerPlugins()
 {
-  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    Plugin* plugin = Plugin::get(pluginIndex);
+  Plugin::each([](Plugin* plugin) {
     DEBUG_SERVER("[webserver] plugin: %s\n", plugin->getName().c_str());
 
     // register one handler per sensor
@@ -233,7 +228,7 @@ void registerPlugins()
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
-  }
+  });
 }
 
 /**

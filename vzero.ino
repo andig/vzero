@@ -1,4 +1,4 @@
- /**
+/**
  * VZero - Zero Config Volkszaehler Controller
  *
  * @author Andreas Goetz <cpuidle@gmx.de>
@@ -33,12 +33,13 @@
 #endif
 
 extern "C" {
-  #include "user_interface.h"
+  #include <user_interface.h>
+  #include <umm_malloc/umm_malloc.h>
 }
 
 enum operation_t {
-  OPERATION_NORMAL = 0x0, // deep sleep forbidden
-  OPERATION_SLEEP =  0x1  // deep sleep allowed
+  OPERATION_NORMAL = 0, // deep sleep forbidden
+  OPERATION_SLEEP =  1  // deep sleep allowed
 };
 
 /**
@@ -91,12 +92,12 @@ uint32_t getDeepSleepDurationMs()
     return 0;
   // check if deep sleep possible
   uint32_t maxSleep = -1; // max uint32_t
-  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    uint32_t sleep = Plugin::get(pluginIndex)->getMaxSleepDuration();
+  Plugin::each([&maxSleep](Plugin* plugin) {
+    uint32_t sleep = plugin->getMaxSleepDuration();
     // DEBUG_CORE("[core] sleep window is %u for %s\n", sleep, Plugin::get(pluginIndex)->getName().c_str());
     if (sleep < maxSleep)
       maxSleep = sleep;
-  }
+  });
   // valid sleep window found?
   if (maxSleep == -1 || maxSleep < MIN_SLEEP_DURATION_MS)
     return 0;
@@ -107,6 +108,12 @@ uint32_t getDeepSleepDurationMs()
 #endif
 }
 
+// use the internal hardware buffer
+static void _u0_putc(char c) {
+  while(((U0S >> USTXC) & 0x7F) == 0x7F);
+  U0F = c;
+}
+
 /**
  * Setup
  */
@@ -115,6 +122,8 @@ void setup()
   // hardware serial
   Serial.begin(115200);
   g_resetInfo = ESP.getResetInfoPtr();
+  ets_install_putc1((void *) &_u0_putc);
+  system_set_os_print(1);
 
   DEBUG_CORE("\n\n[core] Booting...\n");
   DEBUG_CORE("[core] Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
@@ -236,9 +245,10 @@ void loop()
 #endif
 
   // call plugin's loop method
-  for (uint8_t pluginIndex=0; pluginIndex<Plugin::count(); pluginIndex++) {
-    Plugin::get(pluginIndex)->loop();
-  }
+  Plugin::each([](Plugin* plugin) {
+    plugin->loop();
+    yield();
+  });
 
   // check we deep sleep possible
   uint32_t sleep = getDeepSleepDurationMs();
@@ -249,7 +259,7 @@ void loop()
 
   // trigger restart?
   if (g_restartTime > 0 && millis() >= g_restartTime) {
-    DEBUG_CORE("[core] Restarting...\n");
+    DEBUG_CORE("[core] restarting...\n");
     g_restartTime = 0;
     ESP.restart();
   }
@@ -263,19 +273,16 @@ void loop()
     }
   }
 
-  if (millis() - print > 10000 && heap != ESP.getFreeHeap()) {
+  if (millis() - print > 10000 || heap != ESP.getFreeHeap()) {
     heap = ESP.getFreeHeap();
     if (heap < g_minFreeHeap)
       g_minFreeHeap = heap;
-    DEBUG_CORE("[core] heap/min: %d / %d\n", heap, g_minFreeHeap);
+
+    // DEBUG_CORE("[core] heap/min: %d / %d / %d\n", heap, g_minFreeHeap);
+    umm_info(NULL, 0);
+    DEBUG_CORE("[core] heap/cont/min: %d / %d / %d\n", heap, ummHeapInfo.maxFreeContiguousBlocks * 8, g_minFreeHeap);
+
     print = millis();
   }
   delay(100);
-/*
-  DEBUG_CORE("[core] going to light sleep\n");
-  m = millis();
-  wifi_set_sleep_type(LIGHT_SLEEP_T);
-  delay(20000);
-  DEBUG_CORE("[core] slept for %dms\n", millis()-m);
-*/
 }

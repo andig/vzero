@@ -62,31 +62,17 @@ void OneWirePlugin::strToAddr(const char* ptr, uint8_t* addr) {
  * Virtual
  */
 
-OneWirePlugin::OneWirePlugin(byte pin) : _devices(), ow(pin), sensors(&ow) {
-  // allow reuse (if server supports it)
-  http.setReuse(true);
-
-  File configFile = SPIFFS.open(F("/1wire.config"), "r");
-  if (configFile.size() == sizeof(_devices)) {
-    DEBUG_ONEWIRE("[1wire] reading config file\n");
-    configFile.read((uint8_t*)_devices, sizeof(_devices));
-  
-    // find first empty device slot
-    DeviceAddress addr = {};
-    char addr_c[20];
-    addrToStr(addr_c, addr);
-    _devs = getSensorByAddr(addr_c) + 1;
-  }
-  configFile.close();
+OneWirePlugin::OneWirePlugin(byte pin) : _devices(), ow(pin), sensors(&ow), Plugin(0, 0) {
+  loadConfig();
 
   // locate _devices on the bus
-  DEBUG_ONEWIRE("[1wire] looking for 1-Wire devices...\n");
+  DEBUG_PLUGIN("[1wire] looking for 1-Wire devices...\n");
   sensors.begin();
   sensors.setWaitForConversion(false);
   setupSensors();
 
   // report parasite power
-  DEBUG_ONEWIRE("[1wire] parasite power: %s\n", (sensors.isParasitePowerMode()) ? "on" : "off");
+  DEBUG_PLUGIN("[1wire] parasite power: %s\n", (sensors.isParasitePowerMode()) ? "on" : "off");
 }
 
 String OneWirePlugin::getName() {
@@ -140,18 +126,27 @@ void OneWirePlugin::getPluginJson(JsonObject* json) {
   Plugin::getPluginJson(json);
 }
 
-void OneWirePlugin::getSensorJson(JsonObject* json, int8_t sensor) {
-  if (sensor >= _devs)
-    return;
-  Plugin::getSensorJson(json, sensor);
-  (*json)[F("value")] = _devices[sensor].val;
+bool OneWirePlugin::loadConfig() {
+  File configFile = SPIFFS.open(F("/1wire.config"), "r");
+  if (configFile.size() == sizeof(_devices)) {
+    DEBUG_PLUGIN("[1wire] reading config file\n");
+    configFile.read((uint8_t*)_devices, sizeof(_devices));
+  
+    // find first empty device slot
+    DeviceAddress addr = {};
+    char addr_c[20];
+    addrToStr(addr_c, addr);
+    _devs = getSensorByAddr(addr_c) + 1;
+  }
+  configFile.close();
+  return true;
 }
 
 bool OneWirePlugin::saveConfig() {
-  DEBUG_ONEWIRE("[1wire] saving config\n");
+  DEBUG_PLUGIN("[1wire] saving config\n");
   File configFile = SPIFFS.open(F("/1wire.config"), "w");
   if (!configFile) {
-    DEBUG_ONEWIRE("[1wire] failed to open config file for writing\n");
+    DEBUG_PLUGIN("[1wire] failed to open config file for writing\n");
     return false;
   }
 
@@ -164,14 +159,13 @@ bool OneWirePlugin::saveConfig() {
  * Loop (idle -> requesting -> reading)
  */
 void OneWirePlugin::loop() {
-  // DEBUG_ONEWIRE("[1wire] status: %d\n", _status);
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD - REQUEST_WAIT_DURATION)) {
-    // DEBUG_ONEWIRE("[1wire] idle -> requesting\n");
+    DEBUG_PLUGIN("[1wire] loop(PLUGIN_REQUESTING)\n");
     _status = PLUGIN_REQUESTING;
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
-    // DEBUG_ONEWIRE("[1wire] requesting -> reading\n");
+    DEBUG_PLUGIN("[1wire] loop(PLUGIN_UPLOADING)\n");
     _status = PLUGIN_UPLOADING;
     readTemperatures();
 
@@ -183,22 +177,22 @@ void OneWirePlugin::loop() {
 }
 
 void OneWirePlugin::setupSensors() {
-  DEBUG_ONEWIRE("[1wire] found %d devices\n", sensors.getDeviceCount());
+  DEBUG_PLUGIN("[1wire] found %d devices\n", sensors.getDeviceCount());
 
   DeviceAddress addr;
   for (int8_t i=0; i<sensors.getDeviceCount(); i++) {
     if (sensors.getAddress(addr, i)) {
       char addr_c[20];
       addrToStr((char*)addr_c, addr);
-      DEBUG_ONEWIRE("[1wire] device: %s ", addr_c);
+      DEBUG_PLUGIN("[1wire] device: %s ", addr_c);
 
       int8_t sensorIndex = getSensorIndex(addr);
       if (sensorIndex >= 0) {
-        DEBUG_ONEWIRE("(known)\n");
+        DEBUG_PLUGIN("(known)\n");
       }
       else {
         sensorIndex = addSensor(addr);
-        DEBUG_ONEWIRE("(new at %d)\n", sensorIndex);
+        DEBUG_PLUGIN("(new at %d)\n", sensorIndex);
       }
 
       // set precision
@@ -226,7 +220,7 @@ int8_t OneWirePlugin::getSensorIndex(const uint8_t* addr) {
 
 int8_t OneWirePlugin::addSensor(const uint8_t* addr) {
   if (_devs >= MAX_SENSORS) {
-    DEBUG_ONEWIRE("[1wire] too many devices\n");
+    DEBUG_PLUGIN("[1wire] too many devices\n");
     return -1;
   }
   for (uint8_t i=0; i<8; i++) {
@@ -241,7 +235,7 @@ void OneWirePlugin::readTemperatures() {
     optimistic_yield(OPTIMISTIC_YIELD_TIME);
 
     if (_devices[i].val == DEVICE_DISCONNECTED_C) {
-      DEBUG_ONEWIRE("[1wire] device %s disconnected\n", _devices[i].addr);
+      DEBUG_PLUGIN("[1wire] device %s disconnected\n", _devices[i].addr);
       continue;
     }
   }

@@ -54,6 +54,11 @@ function initializePlugins() {
 				plugin.title = "WiFi";
 				el.find(".description").html("WiFi plugin measures the received signal strength indicator (RSSI) if the WiFi signal.");
 			}
+			else if (plugin.name == "dht") {
+				unit = "°C";
+				plugin.title = "DHT";
+				el.find(".description").html("DHT sensors are basic, ultra low-cost digital temperature and humidity sensors.");
+			}
 			else {
 				unit = "";
 				plugin.title = plugin.name;
@@ -68,8 +73,11 @@ function initializePlugins() {
 			$.each(plugin.sensors, function(j, sensor) {
 				$(".state-sensors .not-configured").remove();
 
+				// update sensor, check unit again
 				sensor.plugin = plugin.name;
 				sensor.unit = unit;
+				getSensorType(sensor);
+
 				// home screen
 				template(".sensor-home", ".state-home").addClass("sensor-" + sensor.plugin + "-" + sensor.addr);
 				// plugins screen
@@ -124,7 +132,7 @@ function connectSensor(sensor) {
 		// 2) if not create channel
 		var data = {
 			operation: "add",
-			type: getSensorType(sensor.plugin),
+			type: getSensorType(sensor),
 			title: sensor.addr,
 			style: "lines",
 			resolution: 1
@@ -211,15 +219,19 @@ function updateSensors(to) {
 	});
 }
 
-function getSensorType(plugin, sensor) {
-	switch (plugin) {
+function getSensorType(sensor) {
+	switch (sensor.plugin) {
 		case "1wire":
 			return "temperature";
 		case "dht":
-			if (sensor == 0)
+			if (sensor.addr == "temp") {
+				sensor.unit = "°C";
 				return "temperature";
-			else
+			}
+			else {
+				sensor.unit = "%";
 				return "humidity";
+			}
 		case "analog":
 			return "voltage";
 		case "wifi":

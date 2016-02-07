@@ -5,7 +5,8 @@
  * Virtual
  */
 
-AnalogPlugin::AnalogPlugin() {
+AnalogPlugin::AnalogPlugin() : Plugin(1, 1) {
+  loadConfig();
 }
 
 String AnalogPlugin::getName() {
@@ -27,4 +28,17 @@ bool AnalogPlugin::getAddr(char* addr_c, int8_t sensor) {
 
 float AnalogPlugin::getValue(int8_t sensor) {
   return analogRead(A0) / 1023.0;
+}
+
+/**
+ * Loop (idle -> uploading)
+ */
+void AnalogPlugin::loop() {
+  if (_status == PLUGIN_IDLE && elapsed(10*1000)) {
+    _status = PLUGIN_UPLOADING;
+    if (WiFi.status() == WL_CONNECTED) {
+      upload();
+    }
+    _status = PLUGIN_IDLE;
+  }
 }

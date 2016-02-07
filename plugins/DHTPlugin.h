@@ -2,17 +2,10 @@
 #define DHT_PLUGIN_H
 
 #include <DHT.h>
-#include "SimplePlugin.h"
+#include "Plugin.h"
 
 
-#ifdef DEBUG
-#define DEBUG_DHT(...) ets_printf( __VA_ARGS__ )
-#else
-#define DEBUG_DHT(...)
-#endif
-
-
-class DHTPlugin : public SimplePlugin {
+class DHTPlugin : public Plugin {
 public:
   DHTPlugin(uint8_t pin, uint8_t type);
   String getName() override;
@@ -21,9 +14,8 @@ public:
   float getValue(int8_t sensor) override;
   void loop() override;
 
-private:
+protected:
   DHT _dht;
-  DeviceStructSimple _devices[2];
 };
 
 #endif

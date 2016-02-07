@@ -12,7 +12,7 @@
 #define PLUGIN_IDLE 0
 #define PLUGIN_UPLOADING 1
 
-#define UUID_LENGTH 40
+#define UUID_LENGTH 36
 
 
 #ifdef DEBUG
@@ -22,18 +22,20 @@
 #endif
 
 
-// simple device struct for devices without sensor address
-struct DeviceStructSingle {
-  char uuid[UUID_LENGTH];
+struct DeviceStruct {
+  char uuid[UUID_LENGTH+1];
+  float val;
 };
+
+class Plugin;
 
 class Plugin {
 public:
-  static int8_t count();
-  static Plugin* get(int8_t idx);
+  typedef std::function<void(Plugin*)> CallbackFunction;
 
-  Plugin();
+  Plugin(int8_t maxDevices, int8_t actualDevices);
   virtual ~Plugin();
+  static void each(CallbackFunction callback);
   virtual String getName();
   virtual int8_t getSensors();
   virtual int8_t getSensorByAddr(const char* addr_c);
@@ -44,19 +46,22 @@ public:
   virtual float getValue(int8_t sensor);
   virtual void getPluginJson(JsonObject* json);
   virtual void getSensorJson(JsonObject* json, int8_t sensor);
+  virtual bool loadConfig();
   virtual bool saveConfig();
   virtual void loop();
   virtual uint32_t getMaxSleepDuration();
 
 protected:
+  static HTTPClient http; // synchronous use only
   uint32_t _timestamp;
   uint32_t _duration;
   uint8_t _status;
   int8_t _devs;
-  HTTPClient http;
+  uint16_t _size;
+  DeviceStruct* _devices;
 
   virtual void upload();
-  bool elapsed(uint32_t duration);
+  virtual bool elapsed(uint32_t duration);
 
 private:
   static int8_t instances;

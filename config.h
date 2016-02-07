@@ -11,9 +11,9 @@
 #define DEBUG
 #define OTA_SERVER
 // #define PLUGIN_ONEWIRE
-// #define PLUGIN_DHT
+#define PLUGIN_DHT
 #define PLUGIN_ANALOG
-// #define PLUGIN_WIFI
+#define PLUGIN_WIFI
 #define SPIFFS_EDITOR
 
 // enable deep sleep
@@ -35,7 +35,7 @@
 // other defines
 #define BUILD "0.3.0"   // version
 #define WIFI_CONNECT_TIMEOUT 10000
-#define OPTIMISTIC_YIELD_TIME 16000
+#define OPTIMISTIC_YIELD_TIME 10000
 
 
 #ifdef DEBUG
@@ -62,7 +62,9 @@ extern String g_pass;
 extern String g_middleware;
 
 
+#ifdef DEBUG
 void validateFlash();
+#endif
 
 MD5Builder getHashBuilder();
 String getHash();

@@ -28,6 +28,7 @@ uint32_t g_minFreeHeap = -1;
 /**
  * Validate physical flash settings vs IDE
  */
+#ifdef DEBUG
 void validateFlash()
 {
   uint32_t realSize = ESP.getFlashChipRealSize();
@@ -40,6 +41,7 @@ void validateFlash()
     DEBUG_CORE("[core] Flash configuration wrong!\n");
   }
 }
+#endif
 
 /**
  * Hash builder initialized with unique module identifiers

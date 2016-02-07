@@ -6,19 +6,12 @@
 #include "Plugin.h"
 
 
-#ifdef DEBUG
-#define DEBUG_ONEWIRE(...) ets_printf( __VA_ARGS__ )
-#else
-#define DEBUG_ONEWIRE(...)
-#endif
-
-
 #define MAX_SENSORS 10
 
 
 struct DeviceStructOneWire {
   DeviceAddress addr;
-  char uuid[UUID_LENGTH];
+  char uuid[UUID_LENGTH+1];
   float val;
 };
 
@@ -37,7 +30,7 @@ public:
   bool setUuid(const char* uuid_c, int8_t sensor) override;
   float getValue(int8_t sensor) override;
   void getPluginJson(JsonObject* json) override;
-  void getSensorJson(JsonObject* json, int8_t sensor) override;
+  bool loadConfig() override;
   bool saveConfig() override;
   void loop() override;
 

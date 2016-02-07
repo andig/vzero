@@ -1,7 +1,8 @@
+#include <FS.h>
 #include "DHTPlugin.h"
 
 
-#define SLEEP_PERIOD 60 * 1000
+#define SLEEP_PERIOD 10 * 1000
 #define REQUEST_WAIT_DURATION 1 * 1000
 
 
@@ -9,7 +10,10 @@
  * Virtual
  */
 
-DHTPlugin::DHTPlugin(uint8_t pin, uint8_t type) : _devices(), _dht(pin, type) {
+DHTPlugin::DHTPlugin(uint8_t pin, uint8_t type) : _dht(pin, type), Plugin(2, 2) {
+  DEBUG_PLUGIN("[DHTPlugin]\n");
+  loadConfig();
+  _dht.begin();
 }
 
 String DHTPlugin::getName() {
@@ -36,32 +40,30 @@ bool DHTPlugin::getAddr(char* addr_c, int8_t sensor) {
 
 float DHTPlugin::getValue(int8_t sensor) {
   if (sensor >= _devs)
-    return false;
-  float f = NAN;
-  if (sensor == 0)
-    f = _dht.readTemperature();
-  else if (sensor == 1)
-    f = _dht.readHumidity();
-  if (isnan(f))
-    return false;
-  return true;
+    return NAN;
+  return _devices[sensor].val;
 }
 
 /**
  * Loop (idle -> uploading)
  */
 void DHTPlugin::loop() {
-  // DEBUG_ONEWIRE("[1wire] status: %d\n", _status);
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD - REQUEST_WAIT_DURATION)) {
-    // DEBUG_ONEWIRE("[1wire] idle -> uploading\n");
     _status = PLUGIN_UPLOADING;
 
     // force reading- valid for 2 seconds
-    _dht.readTemperature(false, true);
+    if (_dht.read(true)) {
+      _devices[0].val = _dht.readTemperature();
+      _devices[1].val = _dht.readHumidity();
 
-    if (WiFi.status() == WL_CONNECTED) {
-      upload();
+      if (WiFi.status() == WL_CONNECTED) {
+        upload();
+      }
     }
+    else {
+      DEBUG_PLUGIN("[dht] failed reading sensors\n");
+    }
+
     _status = PLUGIN_IDLE;
   }
 }
