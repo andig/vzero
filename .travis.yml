@@ -1,22 +1,24 @@
 sudo: false
 
-language: java
+language: bash
 
 os:
   - linux
 
-jdk:
-  - oraclejdk8
-
 before_install:
   - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16"
-
-before_script:
   - "export DISPLAY=:99.0"
   - sleep 3 # give xvfb some time to start
+
+before_script:
+  # install ide
   - wget http://downloads.arduino.cc/arduino-1.6.7-linux64.tar.xz
   - tar xf arduino-1.6.7-linux64.tar.xz
   - mv arduino-1.6.7 $HOME/arduino_ide
+  - export PATH="$HOME/arduino_ide:$PATH"
+  - which arduino
+
+  # install arduino core
   - cd $HOME/arduino_ide/hardware
   - mkdir esp8266com
   - cd esp8266com
@@ -24,11 +26,20 @@ before_script:
   - cd esp8266/tools
   - python get.py
 
+  # install libraries
+  - mkdir -p $HOME/Arduino/libraries
+  - git clone https://github.com/bblanchon/ArduinoJson $HOME/Arduino/libraries/ArduinoJson
+  - git clone https://github.com/adafruit/DHT-sensor-library.git $HOME/Arduino/libraries/DHT
+  - git clone https://github.com/PaulStoffregen/OneWire.git $HOME/Arduino/libraries/OneWire
+  - git clone https://github.com/me-no-dev/ESPAsyncTCP $HOME/Arduino/libraries/ESPAsyncTCP
+  - git clone https://github.com/me-no-dev/ESPAsyncWebServer $HOME/Arduino/libraries/ESPAsyncWebServer
+
+
 script:
   - cd $TRAVIS_BUILD_DIR
-  - source tests/check.sh
-  - export PATH="$HOME/arduino_ide:$PATH"
-  - which arduino
+  - source misc/common.sh
   - ls -l
+
   - arduino --board esp8266com:esp8266:generic --save-prefs
-  - build_sketch $PWD/vzero.ino
+  - arduino --get-pref sketchbook.path
+  - build_sketch $PWD/vzero.ino esp8266
