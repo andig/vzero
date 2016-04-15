@@ -35,7 +35,7 @@ Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDe
   _size = maxDevices * sizeof(DeviceStruct);
 
   if (maxDevices > 0) {
-    DEBUG_PLUGIN("[abstract]: alloc %d -> %d\n", maxDevices, _size);
+    // DEBUG_PLUGIN("[abstract]: alloc %d -> %d\n", maxDevices, _size);
     _devices = (DeviceStruct*)malloc(_size);
     if (_devices == NULL)
       panic();
@@ -142,6 +142,7 @@ bool Plugin::saveConfig() {
 }
 
 void Plugin::loop() {
+  DEBUG_PLUGIN("[%s] loop %d\n", getName().c_str(), _status);
 }
 
 void Plugin::upload() {
@@ -151,17 +152,16 @@ void Plugin::upload() {
   char uuid_c[UUID_LENGTH+1];
   char val_c[16];
 
-
   for (int8_t i=0; i<getSensors(); i++) {
     // uuid configured?
     getUuid(uuid_c, i);
     if (strlen(uuid_c) > 0) {
-      DEBUG_PLUGIN("[%s] upload\n", getName().c_str());
       float val = getValue(i);
 
       if (isnan(val))
         break;
 
+      DEBUG_PLUGIN("[%s] upload\n", getName().c_str());
       dtostrf(val, -4, 2, val_c);
 
       String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
@@ -175,6 +175,14 @@ void Plugin::upload() {
       http.end();
     }
   }
+}
+
+bool Plugin::isUploadSafe() {
+  bool isSafe = WiFi.status() == WL_CONNECTED && ESP.getFreeHeap() >= HTTP_MIN_HEAP;
+  if (!isSafe) {
+    DEBUG_PLUGIN("[%s] cannot upload (wifi: %d mem:%d)\n", getName().c_str(), WiFi.status(), ESP.getFreeHeap());
+  }
+  return isSafe;
 }
 
 bool Plugin::elapsed(uint32_t duration) {

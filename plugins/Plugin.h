@@ -27,8 +27,6 @@ struct DeviceStruct {
   float val;
 };
 
-class Plugin;
-
 class Plugin {
 public:
   typedef std::function<void(Plugin*)> CallbackFunction;
@@ -61,6 +59,7 @@ protected:
   DeviceStruct* _devices;
 
   virtual void upload();
+  virtual bool isUploadSafe();
   virtual bool elapsed(uint32_t duration);
 
 private:

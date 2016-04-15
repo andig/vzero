@@ -14,16 +14,15 @@
 const char* ap_default_ssid = "VZERO";
 
 // global vars
-String net_hostname = "vzero";
 rst_info* g_resetInfo;
+String net_hostname = "vzero";
+uint32_t g_minFreeHeap = -1;
 
 // global settings
 String g_ssid = "";
 String g_pass = "";
 String g_middleware = "";
 
-// global variables
-uint32_t g_minFreeHeap = -1;
 
 /**
  * Validate physical flash settings vs IDE

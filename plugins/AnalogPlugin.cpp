@@ -1,6 +1,9 @@
 #include "AnalogPlugin.h"
 
 
+#define SLEEP_PERIOD 10 * 1000
+
+
 /*
  * Virtual
  */
@@ -34,11 +37,15 @@ float AnalogPlugin::getValue(int8_t sensor) {
  * Loop (idle -> uploading)
  */
 void AnalogPlugin::loop() {
-  if (_status == PLUGIN_IDLE && elapsed(10*1000)) {
+  Plugin::loop();
+
+  if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD)) {
     _status = PLUGIN_UPLOADING;
-    if (WiFi.status() == WL_CONNECTED) {
+  }
+  if (_status == PLUGIN_UPLOADING) {
+    if (isUploadSafe()) {
       upload();
+      _status = PLUGIN_IDLE;
     }
-    _status = PLUGIN_IDLE;
   }
 }

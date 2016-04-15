@@ -48,22 +48,24 @@ float DHTPlugin::getValue(int8_t sensor) {
  * Loop (idle -> uploading)
  */
 void DHTPlugin::loop() {
+  Plugin::loop();
+
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD - REQUEST_WAIT_DURATION)) {
     _status = PLUGIN_UPLOADING;
-
+  }
+  if (_status == PLUGIN_UPLOADING) {
     // force reading- valid for 2 seconds
     if (_dht.read(true)) {
       _devices[0].val = _dht.readTemperature();
       _devices[1].val = _dht.readHumidity();
 
-      if (WiFi.status() == WL_CONNECTED) {
+      if (isUploadSafe()) {
         upload();
+        _status = PLUGIN_IDLE;
       }
     }
     else {
       DEBUG_PLUGIN("[dht] failed reading sensors\n");
     }
-
-    _status = PLUGIN_IDLE;
   }
 }

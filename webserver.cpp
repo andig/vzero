@@ -219,7 +219,7 @@ void registerPlugins()
 
     // register one handler per sensor
     String baseUri = "/api/" + plugin->getName() + "/";
-    for  (int8_t sensor=0; sensor<plugin->getSensors(); sensor++) {
+    for (int8_t sensor=0; sensor<plugin->getSensors(); sensor++) {
       String uri = String(baseUri);
       char addr_c[20];
       plugin->getAddr(addr_c, sensor);

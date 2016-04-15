@@ -47,8 +47,8 @@ enum operation_t {
  *
  * Return NORMAL if:
  *   - deep sleep disabled
- *   - cold start
- *   - no WiFi connection
+ *   - not waking up from deep sleep
+ *   - not running as access point
  */
 operation_t getOperationMode()
 {
@@ -87,9 +87,13 @@ uint32_t getDeepSleepDurationMs()
   // don't sleep if access point
   if (WiFi.getMode() & WIFI_STA == 0)
     return 0;
+  // don't sleep during initial startup
+  if (g_resetInfo->reason != 5 && millis() < STARTUP_ONLINE_DURATION_MS)
+    return 0;
   // don't sleep if client connected
   if (millis() - g_lastAccessTime < WIFI_CLIENT_TIMEOUT)
     return 0;
+    
   // check if deep sleep possible
   uint32_t maxSleep = -1; // max uint32_t
   Plugin::each([&maxSleep](Plugin* plugin) {
@@ -98,13 +102,58 @@ uint32_t getDeepSleepDurationMs()
     if (sleep < maxSleep)
       maxSleep = sleep;
   });
+  
   // valid sleep window found?
   if (maxSleep == -1 || maxSleep < MIN_SLEEP_DURATION_MS)
     return 0;
-  // not during initial startup?
-  if (g_resetInfo->reason != 5 && millis() < STARTUP_ONLINE_DURATION_MS)
-    return 0;
+    
   return maxSleep - SLEEP_SAFETY_MARGIN;
+#endif
+}
+
+/**
+ * Start ota server
+ */
+void start_ota() {
+#ifdef OTA_SERVER
+  if (MDNS.begin(net_hostname.c_str()))
+    DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
+  else
+    DEBUG_CORE("[core] error setting up mDNS responder\n");
+
+  // start OTA server
+  DEBUG_CORE("[core] starting OTA server\n");
+  ArduinoOTA.setHostname(net_hostname.c_str());
+  ArduinoOTA.onStart([]() {
+    DEBUG_CORE("[core] OTA start\n");
+  });
+  ArduinoOTA.onEnd([]() {
+    DEBUG_CORE("[core] OTA end\n");
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    DEBUG_CORE("[core] OTA error [%u]\n", error);
+  });
+  ArduinoOTA.begin();
+#endif
+}
+
+/**
+ * Start enabled plugins
+ */
+void start_plugins()
+{
+  DEBUG_CORE("[core] starting plugins\n");
+#ifdef PLUGIN_ONEWIRE
+  new OneWirePlugin(ONEWIRE_PIN);
+#endif
+#ifdef PLUGIN_DHT
+  new DHTPlugin(DHT_PIN, DHT_TYPE);
+#endif
+#ifdef PLUGIN_ANALOG
+  new AnalogPlugin();
+#endif
+#ifdef PLUGIN_WIFI
+  new WifiPlugin();
 #endif
 }
 
@@ -132,12 +181,12 @@ void setup()
   // set hostname
   net_hostname += "-" + String(ESP.getChipId(), HEX);
   WiFi.hostname(net_hostname);
-
-  // print hostname
   DEBUG_CORE("[core] Hostname:   %s\n", net_hostname.c_str());
 
+#ifdef DEBUG
   // check flash settings
   validateFlash();
+#endif
 
   // initialize file system
   if (!SPIFFS.begin()) {
@@ -151,16 +200,14 @@ void setup()
     delay(10);
   }
 
-  DEBUG_CORE("[wifi] current ssid:  %s\n", WiFi.SSID().c_str());
-  // DEBUG_CORE("[wifi] current psk:   %s\n", WiFi.psk().c_str());
-
-  // try connect to configured station
+  // configuration changed - set new credentials
   if (loadConfig() && g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
+    DEBUG_CORE("[wifi] connecting to:  %s\n", WiFi.SSID().c_str());
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
   }
   else {
-    // connect to sdk-configured station
-    DEBUG_CORE("[wifi] reconnecting to previous network\n");
+    // reconnect to sdk-configured station
+    DEBUG_CORE("[wifi] reconnecting to:  %s\n", WiFi.SSID().c_str());
     WiFi.begin();
   }
 
@@ -168,15 +215,9 @@ void setup()
   if (wifiConnect() == WL_CONNECTED) {
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
-#ifdef OTA_SERVER
-    // start MDNS
     if (getOperationMode() == OPERATION_NORMAL) {
-      if (MDNS.begin(net_hostname.c_str()))
-        DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
-      else
-        DEBUG_CORE("[core] error setting up mDNS responder\n");
+      start_ota();
     }
-#endif
   }
   else {
     // go into AP mode
@@ -189,43 +230,11 @@ void setup()
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
   }
 
-  // start webserver after plugins
-  system_set_os_print(1);
-  // system_show_malloc();
+  // start plugins (before web server)
+  start_plugins();
 
-  // start plugins
-  DEBUG_CORE("[core] starting plugins\n");
-#ifdef PLUGIN_ONEWIRE
-  new OneWirePlugin(ONEWIRE_PIN);
-#endif
-#ifdef PLUGIN_DHT
-  new DHTPlugin(DHT_PIN, DHT_TYPE);
-#endif
-#ifdef PLUGIN_ANALOG
-  new AnalogPlugin();
-#endif
-#ifdef PLUGIN_WIFI
-  new WifiPlugin();
-#endif
-
-  // start OTA and web server if not in battery mode
+  // start web server if not in battery mode
   if (getOperationMode() == OPERATION_NORMAL) {
-#ifdef OTA_SERVER
-    // start OTA server
-    DEBUG_CORE("[core] starting OTA server\n");
-    ArduinoOTA.setHostname(net_hostname.c_str());
-    ArduinoOTA.onStart([]() {
-      DEBUG_CORE("[core] OTA Start\n");
-    });
-    ArduinoOTA.onEnd([]() {
-      DEBUG_CORE("[core] OTA End\n");
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-      DEBUG_CORE("[core] OTA Error [%u]\n", error);
-    });
-    ArduinoOTA.begin();
-#endif
-
     webserver_start();
   }
 }
@@ -250,7 +259,7 @@ void loop()
     yield();
   });
 
-  // check we deep sleep possible
+  // check if deep sleep possible
   uint32_t sleep = getDeepSleepDurationMs();
   if (sleep > 0) {
     DEBUG_CORE("[core] going to deep sleep for %ums\n", sleep);
@@ -278,11 +287,10 @@ void loop()
     if (heap < g_minFreeHeap)
       g_minFreeHeap = heap;
 
-    // DEBUG_CORE("[core] heap/min: %d / %d / %d\n", heap, g_minFreeHeap);
     umm_info(NULL, 0);
-    DEBUG_CORE("[core] heap/cont/min: %d / %d / %d\n", heap, ummHeapInfo.maxFreeContiguousBlocks * 8, g_minFreeHeap);
+    Serial.printf("[core] heap/cont/min: %d / %d / %d\n", heap, ummHeapInfo.maxFreeContiguousBlocks * 8, g_minFreeHeap);
 
     print = millis();
   }
-  delay(100);
+  delay(1000);
 }

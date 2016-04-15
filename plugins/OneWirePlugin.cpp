@@ -159,20 +159,23 @@ bool OneWirePlugin::saveConfig() {
  * Loop (idle -> requesting -> reading)
  */
 void OneWirePlugin::loop() {
+  Plugin::loop();
+
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD - REQUEST_WAIT_DURATION)) {
-    DEBUG_PLUGIN("[1wire] loop(PLUGIN_REQUESTING)\n");
+    DEBUG_PLUGIN("[1wire] loop (REQUESTING)\n");
     _status = PLUGIN_REQUESTING;
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
-    DEBUG_PLUGIN("[1wire] loop(PLUGIN_UPLOADING)\n");
+    DEBUG_PLUGIN("[1wire] loop (UPLOADING)\n");
     _status = PLUGIN_UPLOADING;
     readTemperatures();
-
-    if (WiFi.status() == WL_CONNECTED) {
+  }
+  if (_status == PLUGIN_UPLOADING) {
+    if (isUploadSafe()) {
       upload();
+      _status = PLUGIN_IDLE;
     }
-    _status = PLUGIN_IDLE;
   }
 }
 
