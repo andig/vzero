@@ -7,6 +7,7 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
+#include <FileFallbackHandler.h>
 #include <AsyncJson.h>
 
 #include "config.h"
@@ -241,6 +242,9 @@ void webserver_start()
     DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
     request->send(404, F("text/plain"), F("File not found"));
   });
+
+  // CDN
+  g_server.addHandler(new FileFallbackHandler(SPIFFS, "/js/jquery-2.1.4.min.js", "/js/jquery-2.1.4.min.js", "http://code.jquery.com/jquery-2.1.4.min.js", CACHE_HEADER));
 
   // static
   g_server.serveStatic("/", SPIFFS, "/index.html", CACHE_HEADER);

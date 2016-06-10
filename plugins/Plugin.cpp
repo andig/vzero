@@ -94,7 +94,7 @@ float Plugin::getValue(int8_t sensor) {
 }
 
 void Plugin::getPluginJson(JsonObject* json) {
-  JsonArray& sensorlist = json->createNestedArray(F("sensors"));
+  JsonArray& sensorlist = json->createNestedArray("sensors");
   for (int8_t i=0; i<getSensors(); i++) {
     JsonObject& data = sensorlist.createNestedObject();
     getSensorJson(&data, i);

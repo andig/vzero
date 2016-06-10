@@ -121,7 +121,7 @@ float OneWirePlugin::getValue(int8_t sensor) {
 }
 
 void OneWirePlugin::getPluginJson(JsonObject* json) {
-  JsonObject& config = json->createNestedObject(F("settings"));
+  JsonObject& config = json->createNestedObject("settings");
   config[F("interval")] = 30;
   Plugin::getPluginJson(json);
 }
