@@ -245,6 +245,8 @@ void webserver_start()
 
   // CDN
   g_server.addHandler(new FileFallbackHandler(SPIFFS, "/js/jquery-2.1.4.min.js", "/js/jquery-2.1.4.min.js", "http://code.jquery.com/jquery-2.1.4.min.js", CACHE_HEADER));
+  g_server.addHandler(new FileFallbackHandler(SPIFFS, "/js/sparkline.js", "/js/sparkline.js", "http://cdnjs.cloudflare.com/ajax/libs/jquery-sparklines/2.1.2/jquery.sparkline.min.js", CACHE_HEADER));
+  g_server.addHandler(new FileFallbackHandler(SPIFFS, "/css/foundation.min.css", "/css/foundation.min.css", "http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css", CACHE_HEADER));
 
   // static
   g_server.serveStatic("/", SPIFFS, "/index.html", CACHE_HEADER);
