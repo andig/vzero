@@ -21,11 +21,11 @@
 /*
  * Plugins
  */
-// #define OTA_SERVER
+#define OTA_SERVER
 // #define PLUGIN_ONEWIRE
-//#define PLUGIN_DHT
-//#define PLUGIN_ANALOG
-//#define PLUGIN_WIFI
+#define PLUGIN_DHT
+#define PLUGIN_ANALOG
+#define PLUGIN_WIFI
 // #define SPIFFS_EDITOR
 
 // settings

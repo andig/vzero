@@ -11,9 +11,10 @@
 		messages: {
 			timeout: 10000	// message fade interval
 		},
+		api: "",			// api url
 		test: {
-			api: "http://cpuidle.ddns.net:3000",		// api url
-			stage: null		// setup state for testing
+			// stage: "wifi"		// setup state for testing
+			// stage: "middleware"	// setup state for testing
 		}
 	};
 
@@ -29,15 +30,15 @@
 	}
 
 	function hashCode(str) {
-	  var hash = 0, i, chr, len;
-	  if (str.length === 0) return hash;
-	  for (i = 0, len = str.length; i < len; i++) {
-	    chr   = str.charCodeAt(i);
-	    hash  = ((hash << 5) - hash) + chr;
-	    hash |= 0; // Convert to 32bit integer
-	  }
-	  return hash;
-	};
+		var hash = 0, i, chr, len;
+		if (str.length === 0) return hash;
+		for (i = 0, len = str.length; i < len; i++) {
+			chr   = str.charCodeAt(i);
+			hash  = ((hash << 5) - hash) + chr;
+			hash |= 0; // Convert to 32bit integer
+		}
+		return hash;
+	}
 
 	function ajax(url, settings) {
 		var log = (settings.data) ? url + "<br/>" + JSON.stringify(settings.data) : url;
@@ -152,52 +153,49 @@
 		}
 
 		$(".state-sensors .sensor:not(.template)").each(function(i, el) {
-	console.log($(el).data());
+			console.log($(el).data());
 		});
 	}
 
 	function connectSensor(sensor) {
 		// 1) check if sensor already exists at middleware
-		$.ajax(getMiddleware() + "/iot/" + sensor.hash + ".json")
-		.then(function(json) {
-			if (json.entities === undefined) {
-				// wrong mw version
-				notify("warning", "Middleware failed", "Could not perform middleware operation. Check middleware version (needs d63104b).");
-			}
-			else if (json.entities.length === 1) {
-				// exactly one match
+		var deferredUuid = $.ajax(getMiddleware() + "/iot/" + sensor.hash + ".json").then(function(json) {
+			if (json.entities  && json.entities.length === 1) {
+				// exactly one match - resolve uuid
 				return $.Deferred().resolveWith(this, [json.entities[0].uuid]);
 			}
+			if (json.entities === undefined) {
+				// wrong mw version
+				console.warn("FOOOOO"); // @TODO
+				notify("warning", "Middleware failed", "Could not perform middleware operation. Check middleware version (needs d63104b).");
+			}
+
 			// 2) if not create channel
 			var data = {
 				operation: "add",
 				type: getSensorType(sensor),
 				title: sensor.addr,
+				owner: sensor.hash,		// remember sensor hash
 				style: "lines",
 				resolution: 1
 			};
-			if (json.entities !== undefined) {
-				// assume recent middleware
-				$.extend(data, {
-					owner: sensor.hash
-				});
-			}
-			return $.ajax(getMiddleware() + "/channel.json?" + $.param(data))
-			.then(function(json) {
+
+			return $.ajax(getMiddleware() + "/channel.json?" + $.param(data)).then(function(json) {
 				if (json.entity !== undefined && json.entity.uuid !== undefined) {
 					return $.Deferred().resolveWith(this, [json.entity.uuid]);
 				}
-				notify("error", "Sensor not connected", "Unknown middleware error.");
-				return $.Deferred.reject();
+				notify("error", "Sensor not connected", "Could not connect sensor " + sensor.addr + " to the middleware. Middleware says: '" + json.exception.message + "'");
+				return $.Deferred().reject();
 			}, function() {
 				notify("error", "Sensor not connected", "Could not connect sensor " + sensor.addr + " to the middleware.");
-				return $.Deferred.reject();
+				return $.Deferred().reject();
 			});
 		}, function() {
 			notify("error", "Middleware error", "Could not connect to middleware.");
-		})
-		.done(function(uuid) {
-			// 3) update sensor config with uuid
+		});
+
+		// 3) update sensor config with uuid
+		deferredUuid.done(function(uuid) {
 			sensor.uuid = uuid;
 			$.ajax(getSensorApi(sensor) + "?" + $.param({
 				uuid: sensor.uuid
@@ -221,7 +219,9 @@
 
 		deferred.done(function(json) {
 			if (json.exception !== undefined) {
-				notify("error", "Middleware error", "Could not delete sensor " + sensor.addr + " from middleware. Sensor will be disconnected instead.");
+				var msg = "Could not delete sensor " + sensor.addr + " from middleware. Sensor will be disconnected instead. ";
+				msg += "Middleware says: '" + json.exception.message + "'";
+				notify("error", "Sensor not deleted", msg);
 			}
 
 			// clear uuid from vzero
@@ -281,7 +281,7 @@
 	}
 
 	function getApi(api) {
-		return options.test.api + api;
+		return options.api + api;
 	}
 
 	function getSensorApi(data) {
@@ -357,7 +357,7 @@
 				}
 				sparkline.draw(sparkdata);
 			}
-			return $.Deferred().resolve(json);
+			return $.Deferred().resolveWith(this, [json]);
 		})
 		.fail(function() {
 			notify("warning", "No connection", "Could not update status from VZero.");
@@ -408,12 +408,12 @@
 			$('.middleware').val(json.middleware);
 
 			// initial setup - wifi
-			if ($(".wifimode").text() == "Access Point" || options.test.stage == 1) {
+			if ($(".wifimode").text() == "Access Point" || options.test.stage == "wifi") {
 				$(".column.row:not(.state-always), .menu-container").addClass("hide");
 				$(".state-initial-wifi").removeClass("hide");
 			}
 			// initial setup - middleware
-			else if ($(".middleware").val().trim() === "" || options.test.stage == 2) {
+			else if ($(".middleware").val().trim() === "" || options.test.stage == "middleware") {
 				$(".middleware").val("http://demo.volkszaehler.org/middleware.php");
 				$(".column.row:not(.state-always), .menu-container").addClass("hide");
 				$(".state-initial-middleware").removeClass("hide");
@@ -458,19 +458,17 @@
 					});
 				}, 2000);
 			}
-		}).fail(connectDevice);
+		}).fail(function() {
+			window.setTimeout(connectDevice, 200);
+		});
 	}
 
 	// dom ready
 	$(function() {
 		// url parameters
-		var param = getUrlParams();
-		if (params.length) {
-			console.warn(params);
-			if (params.api) {
-				options.test.api = params.api;
-			}
-		}
+		var params = getUrlParams();
+		$.extend(options, params);
+		console.warn(options);
 
 		// js loaded - update UI
 		$('.loader .subheader').text("connecting...");
