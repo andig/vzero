@@ -12,6 +12,5 @@
   https://github.com/zenmanenergy/ESP8266-Arduino-Examples/tree/master/helloworld_serial
 */
 
-String urldecode(String str);
 String urlencode(String str);
 
