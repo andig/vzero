@@ -61,11 +61,11 @@
         var sparkline = new Sparkline(element, options);
         sparkline.draw(points);
         return sparkline;
-    }
+    };
 
     function getY(minValue, maxValue, offsetY, height, index){
         var range = maxValue - minValue;
-        if(range == 0){
+        if(range === 0){
           return offsetY + height/2;
         }else{
           return (offsetY + height) - ((this[index] - minValue) / range)*height;
@@ -133,7 +133,7 @@
         dot(this.options.endColor, offsetX + (points.length == 1 ? width/2 : width), y(i - 1));
         dot(this.options.minColor, minX + (points.length == 1 ? width/2 : 0), y(points.indexOf(minValue)));
         dot(this.options.maxColor, maxX + (points.length == 1 ? width/2 : 0), y(points.indexOf(maxValue)));
-    }
+    };
 
     function minmax(a, b, c){
         return Math.max(a, Math.min(b, c));
