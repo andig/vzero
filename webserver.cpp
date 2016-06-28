@@ -112,17 +112,17 @@ void handleSettings(AsyncWebServerRequest *request)
   int result = 400;
 
   // read ssid and psk
-  if (request->hasParam("ssid") && request->hasParam("pass")) {
-    ssid = request->getParam("ssid")->value();
-    pass = request->getParam("pass")->value();
+  if (request->hasParam("ssid", true) && request->hasParam("pass", true)) {
+    ssid = request->getParam("ssid", true)->value();
+    pass = request->getParam("pass", true)->value();
     if (ssid != "") {
       g_ssid = ssid;
       g_pass = pass;
       result = 200;
     }
   }
-  if (request->hasParam("middleware")) {
-    g_middleware = request->getParam("middleware")->value();
+  if (request->hasParam("middleware", true)) {
+    g_middleware = request->getParam("middleware", true)->value();
     result = 200;
   }
   if (result == 400) {
@@ -195,20 +195,6 @@ void handleGetPlugins(AsyncWebServerRequest *request)
   jsonResponse(request, 200, json);
 }
 
-void serveStaticDir(String path)
-{
-  DEBUG_SERVER("[webserver] static dir: %s\n", path.c_str());
-  Dir dir = SPIFFS.openDir(path);
-  while (dir.next()) {
-    String file = dir.fileName();
-    if (file.endsWith(".gz")) {
-      file.remove(file.length()-3);
-    }
-    // DEBUG_SERVER("[webserver] static file: %s\n", file.c_str());
-    g_server.serveStatic(file.c_str(), SPIFFS, file.c_str(), CACHE_HEADER);
-  }
-}
-
 /**
  * Setup handlers for each plugin and sensor
  * Structure is /api/<plugin>/<sensor>
@@ -250,21 +236,32 @@ void webserver_start()
   // static
   g_server.serveStatic("//", SPIFFS, "/index.html", CACHE_HEADER);
   g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
-  serveStaticDir(F("/icons"));
-  serveStaticDir(F("/img"));
-  serveStaticDir(F("/js"));
-  serveStaticDir(F("/css"));
+
+  g_server.serveStatic("/icons", SPIFFS, "/icons", CACHE_HEADER);
+  g_server.serveStatic("/img", SPIFFS, "/img", CACHE_HEADER);
+  g_server.serveStatic("/js", SPIFFS, "/js", CACHE_HEADER);
+  g_server.serveStatic("/css", SPIFFS, "/css", CACHE_HEADER);
 
   // GET
-  g_server.on("/settings", HTTP_GET, handleSettings);
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
 
   // POST
+  g_server.on("/settings", HTTP_POST, handleSettings);
   g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
+    // AsyncWebServerResponse *response = request->beginResponse(302);
+    // response->addHeader("Location", net_hostname + ".local");
+    // request->send(response);
+
     request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
+    
+    requestRestart();
   });
+  // g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
+  //   request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
+  //   requestRestart();
+  // });
 
   // sensor api
   registerPlugins();
