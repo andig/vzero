@@ -273,12 +273,15 @@ void loop()
     ESP.restart();
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    DEBUG_CORE("[core] wifi connection lost\n");
-    WiFi.reconnect();
-    if (wifiConnect() != WL_CONNECTED) {
-      DEBUG_CORE("[core] could not reconnect wifi - restarting\n");
-      ESP.restart();
+  // check WLAN if not AP
+  if (WiFi.getMode() & WIFI_AP == 0) {  
+    if (WiFi.status() != WL_CONNECTED) {
+      DEBUG_CORE("[core] wifi connection lost\n");
+      WiFi.reconnect();
+      if (wifiConnect() != WL_CONNECTED) {
+        DEBUG_CORE("[core] could not reconnect wifi - restarting\n");
+        ESP.restart();
+      }
     }
   }
 
