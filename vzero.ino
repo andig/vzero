@@ -129,6 +129,19 @@ void start_ota() {
   });
   ArduinoOTA.onEnd([]() {
     DEBUG_CORE("[core] OTA end\n");
+
+    // save config after OTA Update
+    if (SPIFFS.begin()) {
+      File configFile = SPIFFS.open(F("/config.json"), "r");
+      if (!configFile) {
+        DEBUG_CORE("[core] Config wiped by OTA - saving\n");
+        saveConfig();
+      }
+      else {
+        configFile.close();
+      }
+      SPIFFS.end();
+    }
   });
   ArduinoOTA.onError([](ota_error_t error) {
     DEBUG_CORE("[core] OTA error [%u]\n", error);
