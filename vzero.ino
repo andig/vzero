@@ -32,6 +32,12 @@
 #include <ArduinoOTA.h>
 #endif
 
+#ifdef CAPTIVE_PORTAL
+#include <DNSServer.h>
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
+#endif
+
 extern "C" {
   #include <user_interface.h>
   #include <umm_malloc/umm_malloc.h>
@@ -241,6 +247,11 @@ void setup()
 
     WiFi.softAP(ap_default_ssid);
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
+
+#ifdef CAPTIVE_PORTAL
+    // start DNS server for any domain
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+#endif
   }
 
   // start plugins (before web server)
