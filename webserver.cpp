@@ -225,6 +225,18 @@ void webserver_start()
 {
   // not found
   g_server.onNotFound([](AsyncWebServerRequest *request) {
+#ifdef CAPTIVE_PORTAL
+    // if not in wifi client mode...
+    if (WiiFi.getMode() & WIFI_STA == 0) {
+      // ... and request for different host (due to DNS * response)
+      if (request->host() != WiFi.softAPIP() && WiFi.request->host() != net_hostname + ".local") {
+        // ... then send to web server root
+        DEBUG_SERVER("[webserver] captive request to %s\n", request->url().c_str());
+        request->redirect(getIP());
+        return;
+      }
+    }
+#endif
     DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
     request->send(404, F("text/plain"), F("File not found"));
   });
@@ -254,8 +266,6 @@ void webserver_start()
     // request->send(response);
 
     request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
-    requestRestart();
-    
     requestRestart();
   });
   // g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
