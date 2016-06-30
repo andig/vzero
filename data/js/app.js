@@ -325,6 +325,9 @@
 			else if (json.resetcode == 2) {
 				notify("error", "Unexpected restart", "The VZero has experienced an unexpected restart, caused by an exception.");
 			}
+			else if (json.resetcode == 4 && json.uptime < 30000) {
+				notify("warning", "Restart", "The VZero was restarted.");
+			}
 
 			var heap = json.heap;
 			if (heap < 8192) {

@@ -7,7 +7,6 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
-#include <FileFallbackHandler.h>
 #include <AsyncJson.h>
 
 #include "config.h"
@@ -48,6 +47,37 @@ void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
   json.printTo(*response);
   request->send(response);
 }
+
+String getIP()
+{
+  IPAddress ip = (WiFi.getMode() & WIFI_STA) ? WiFi.localIP() : WiFi.softAPIP();
+  return ip.toString();
+}
+
+#ifdef CAPTIVE_PORTAL
+class CaptiveRequestHandler : public AsyncWebHandler {
+public:
+  CaptiveRequestHandler() {
+  }
+
+  bool canHandle(AsyncWebServerRequest *request){
+    // redirect if not in wifi client mode (through filter)  
+    // and request for different host (due to DNS * response)
+    if (request->host() != WiFi.softAPIP().toString()) 
+      return true;
+    else
+      return false;
+  }
+
+  void handleRequest(AsyncWebServerRequest *request) {
+    DEBUG_SERVER("[webserver] captive request to %s\n", request->url().c_str());
+    String location = "http://" + WiFi.softAPIP().toString();
+    if (request->host() == net_hostname + ".local")
+      location += request->url();
+    request->redirect(location);
+  }
+};
+#endif
 
 class PluginRequestHandler : public AsyncWebHandler {
 public:
@@ -93,10 +123,13 @@ protected:
   int8_t _sensor;
 };
 
-String getIP()
+/**
+ * Handle set request from http server.
+ */
+void handleNotFound(AsyncWebServerRequest *request)
 {
-  IPAddress ip = (WiFi.getMode() == WIFI_STA) ? WiFi.localIP() : WiFi.softAPIP();
-  return ip.toString();
+  DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
+  request->send(404, F("text/plain"), F("File not found"));
 }
 
 /**
@@ -163,7 +196,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
     // json[F("pass")] = g_pass;
     json[F("middleware")] = g_middleware;
     json[F("flash")] = ESP.getFlashChipRealSize();
-    json[F("wifimode")] = (WiFi.getMode() == WIFI_STA) ? "Connected" : "Access Point";
+    json[F("wifimode")] = (WiFi.getMode() & WIFI_STA) ? "Connected" : "Access Point";
     json[F("ip")] = getIP();
   }
 
@@ -218,37 +251,61 @@ void registerPlugins()
   });
 }
 
+void handleWifiScan(AsyncWebServerRequest *request)
+{
+  String json = "[";
+  int n = WiFi.scanComplete();
+  if (n == WIFI_SCAN_FAILED){
+    WiFi.scanNetworks(true);
+  } 
+  else if (n > 0) { // scan finished
+    for (int i = 0; i < n; ++i) {
+      if (i) json += ",";
+      json += "{";
+      json += "\"rssi\":" + String(WiFi.RSSI(i));
+      json += ",\"ssid\":\"" + WiFi.SSID(i) + "\"";
+      // json += ",\"bssid\":\""+WiFi.BSSIDstr(i)+"\"";
+      // json += ",\"channel\":"+String(WiFi.channel(i));
+      json += ",\"secure\":" + String(WiFi.encryptionType(i));
+      json += ",\"hidden\":" + String(WiFi.isHidden(i) ? "true" : "false");
+      json += "}";
+    }
+    WiFi.scanDelete();
+    WiFi.scanNetworks(true);
+  }
+  json += "]";
+
+  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
+  response->addHeader("Access-Control-Allow-Origin", "*");
+  request->send(response);
+}
+
 /**
  * Initialize web server and add requests
  */
 void webserver_start()
 {
   // not found
-  g_server.onNotFound([](AsyncWebServerRequest *request) {
-#ifdef CAPTIVE_PORTAL
-    // if not in wifi client mode...
-    if (WiiFi.getMode() & WIFI_STA == 0) {
-      // ... and request for different host (due to DNS * response)
-      if (request->host() != WiFi.softAPIP() && WiFi.request->host() != net_hostname + ".local") {
-        // ... then send to web server root
-        DEBUG_SERVER("[webserver] captive request to %s\n", request->url().c_str());
-        request->redirect(getIP());
-        return;
-      }
-    }
-#endif
-    DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
-    request->send(404, F("text/plain"), F("File not found"));
-  });
+  g_server.onNotFound(handleNotFound);
 
-  // CDN
-  g_server.addHandler(new FileFallbackHandler(SPIFFS, "/js/jquery-2.1.4.min.js", "/js/jquery-2.1.4.min.js", "http://code.jquery.com/jquery-2.1.4.min.js", CACHE_HEADER));
-  g_server.addHandler(new FileFallbackHandler(SPIFFS, "/css/foundation.min.css", "/css/foundation.min.css", "http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css", CACHE_HEADER));
+#ifdef CAPTIVE_PORTAL
+  // handle captive requests
+  g_server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
+#endif
 
   // static
   g_server.serveStatic("//", SPIFFS, "/index.html", CACHE_HEADER);
   g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
 
+  // CDN
+  g_server.on("/js/jquery-2.1.4.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("http://code.jquery.com/jquery-2.1.4.min.js");
+  }).setFilter(ON_STA_FILTER);
+  g_server.on("/css/foundation.min.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css");
+  }).setFilter(ON_STA_FILTER);
+
+  // static, after CDN exceptions
   g_server.serveStatic("/icons", SPIFFS, "/icons", CACHE_HEADER);
   g_server.serveStatic("/img", SPIFFS, "/img", CACHE_HEADER);
   g_server.serveStatic("/js", SPIFFS, "/js", CACHE_HEADER);
@@ -257,6 +314,7 @@ void webserver_start()
   // GET
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
+  g_server.on("/scan", HTTP_GET, handleWifiScan);
 
   // POST
   g_server.on("/settings", HTTP_POST, handleSettings);
@@ -268,10 +326,6 @@ void webserver_start()
     request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
   });
-  // g_server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
-  //   request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
-  //   requestRestart();
-  // });
 
   // sensor api
   registerPlugins();

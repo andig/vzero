@@ -63,7 +63,7 @@ operation_t getOperationMode()
 #endif
   if (g_resetInfo->reason != REASON_DEEP_SLEEP_AWAKE)
     return OPERATION_NORMAL;
-  if (WiFi.getMode() & WIFI_STA == 0)
+  if ((WiFi.getMode() & WIFI_STA) == 0)
     return OPERATION_NORMAL;
   return OPERATION_SLEEP;
 }
@@ -91,7 +91,7 @@ uint32_t getDeepSleepDurationMs()
   return 0;
 #else
   // don't sleep if access point
-  if (WiFi.getMode() & WIFI_STA == 0)
+  if ((WiFi.getMode() & WIFI_STA) == 0)
     return 0;
   // don't sleep during initial startup
   if (g_resetInfo->reason != 5 && millis() < STARTUP_ONLINE_DURATION_MS)
@@ -234,9 +234,7 @@ void setup()
   if (wifiConnect() == WL_CONNECTED) {
     DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
-    if (getOperationMode() == OPERATION_NORMAL) {
-      start_ota();
-    }
+
   }
   else {
     // go into AP mode
@@ -250,8 +248,14 @@ void setup()
 
 #ifdef CAPTIVE_PORTAL
     // start DNS server for any domain
+    DEBUG_CORE("[wifi] starting captive DNS server\n");
     dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
 #endif
+  }
+
+  // start OTA - both in AP as in STA mode
+  if (getOperationMode() == OPERATION_NORMAL) {
+    start_ota();
   }
 
   // start plugins (before web server)
@@ -271,6 +275,10 @@ long heap = 0;
  */
 void loop()
 {
+#ifdef CAPTIVE_PORTAL
+  dnsServer.processNextRequest();
+#endif
+
 #ifdef OTA_SERVER
   if (getOperationMode() == OPERATION_NORMAL) {
     ArduinoOTA.handle();
@@ -298,7 +306,7 @@ void loop()
   }
 
   // check WLAN if not AP
-  if (WiFi.getMode() & WIFI_AP == 0) {  
+  if ((WiFi.getMode() & WIFI_AP) == 0) {  
     if (WiFi.status() != WL_CONNECTED) {
       DEBUG_CORE("[core] wifi connection lost\n");
       WiFi.reconnect();

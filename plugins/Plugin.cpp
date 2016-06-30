@@ -142,7 +142,7 @@ bool Plugin::saveConfig() {
 }
 
 void Plugin::loop() {
-  DEBUG_PLUGIN("[%s] loop %d\n", getName().c_str(), _status);
+  // DEBUG_PLUGIN("[%s] loop %d\n", getName().c_str(), _status);
 }
 
 void Plugin::upload() {
@@ -178,6 +178,9 @@ void Plugin::upload() {
 }
 
 bool Plugin::isUploadSafe() {
+  // no upload in AP mode, no logging
+  if ((WiFi.getMode() & WIFI_STA) == 0)
+    return false;
   bool isSafe = WiFi.status() == WL_CONNECTED && ESP.getFreeHeap() >= HTTP_MIN_HEAP;
   if (!isSafe) {
     DEBUG_PLUGIN("[%s] cannot upload (wifi: %d mem:%d)\n", getName().c_str(), WiFi.status(), ESP.getFreeHeap());
