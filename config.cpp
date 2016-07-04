@@ -24,20 +24,30 @@ String g_pass = "";
 String g_middleware = "";
 
 
-/**
- * Validate physical flash settings vs IDE
- */
 #ifdef DEBUG
-void validateFlash()
-{
-  uint32_t realSize = ESP.getFlashChipRealSize();
-  uint32_t ideSize = ESP.getFlashChipSize();
+void debug_plain(const char *msg) {
+  ets_printf(msg);
+}
 
-  DEBUG_CORE("[core] Flash size: %u\n", realSize);
-  DEBUG_CORE("[core] Flash free: %u\n", ESP.getFreeSketchSpace());
+/**
+ * Verbose debug output
+ */
+#define BUFFER_SIZE 150
+void debug_message(const char *module, const char *format, ...) {
+  ets_printf("[%-6s] ", module);
 
-  if (ideSize != realSize) {
-    DEBUG_CORE("[core] Flash configuration wrong!\n");
+  va_list args;
+  char buf[BUFFER_SIZE];
+  va_start(args, format);
+  vsnprintf(buf, BUFFER_SIZE, format, args);
+  ets_printf(buf);
+  va_end(args);
+}
+
+void debug_mem() {
+  if (ESP.getFreeHeap() < g_minFreeHeap) { 
+    g_minFreeHeap = ESP.getFreeHeap(); 
+    debug_message("core", "heap min: %d\n", g_minFreeHeap); 
   }
 }
 #endif
@@ -97,9 +107,9 @@ bool loadConfig()
   arg = json["middleware"].asString();
   if (arg) g_middleware = arg;
 
-  DEBUG_CORE("[core] config ssid:   %s\n", g_ssid.c_str());
-  // DEBUG_CORE("[core] config psk:    %s\n", g_pass.c_str());
-  DEBUG_CORE("[core] middleware:    %s\n", g_middleware.c_str());
+  DEBUG_MSG(CORE, "config ssid:   %s\n", g_ssid.c_str());
+  // DEBUG_MSG(CORE, "config psk:    %s\n", g_pass.c_str());
+  DEBUG_MSG(CORE, "middleware:    %s\n", g_middleware.c_str());
   
   return true;
 }

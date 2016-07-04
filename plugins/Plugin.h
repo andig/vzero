@@ -15,13 +15,6 @@
 #define UUID_LENGTH 36
 
 
-#ifdef DEBUG
-#define DEBUG_PLUGIN(...) ets_printf( __VA_ARGS__ )
-#else
-#define DEBUG_PLUGIN(...)
-#endif
-
-
 struct DeviceStruct {
   char uuid[UUID_LENGTH+1];
   float val;

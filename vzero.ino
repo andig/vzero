@@ -72,13 +72,13 @@ operation_t getOperationMode()
  * (Re)connect WiFi - give ESP 10 seconds to connect to station
  */
 wl_status_t wifiConnect() {
-  DEBUG_CORE("[wifi] waiting for connection");
+  DEBUG_MSG("wifi", "waiting for connection");
   unsigned long startTime = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startTime < WIFI_CONNECT_TIMEOUT) {
-    DEBUG_CORE(".");
+    DEBUG_PLAIN(".");
     delay(100);
   }
-  DEBUG_CORE("\n");
+  DEBUG_PLAIN("\n");
   return WiFi.status();
 }
 
@@ -104,7 +104,7 @@ uint32_t getDeepSleepDurationMs()
   uint32_t maxSleep = -1; // max uint32_t
   Plugin::each([&maxSleep](Plugin* plugin) {
     uint32_t sleep = plugin->getMaxSleepDuration();
-    // DEBUG_CORE("[core] sleep window is %u for %s\n", sleep, Plugin::get(pluginIndex)->getName().c_str());
+    // DEBUG_MSG(CORE, "sleep window is %u for %s\n", sleep, Plugin::get(pluginIndex)->getName().c_str());
     if (sleep < maxSleep)
       maxSleep = sleep;
   });
@@ -122,25 +122,27 @@ uint32_t getDeepSleepDurationMs()
  */
 void start_ota() {
 #ifdef OTA_SERVER
-  if (MDNS.begin(net_hostname.c_str()))
-    DEBUG_CORE("[core] mDNS responder started at %s.local\n", net_hostname.c_str());
-  else
-    DEBUG_CORE("[core] error setting up mDNS responder\n");
+  if (MDNS.begin(net_hostname.c_str())) {
+    DEBUG_MSG(CORE, "mDNS responder started at %s.local\n", net_hostname.c_str());
+  }
+  else {
+    DEBUG_MSG(CORE, "error setting up mDNS responder\n");
+  }
 
   // start OTA server
-  DEBUG_CORE("[core] starting OTA server\n");
+  DEBUG_MSG(CORE, "starting OTA server\n");
   ArduinoOTA.setHostname(net_hostname.c_str());
   ArduinoOTA.onStart([]() {
-    DEBUG_CORE("[core] OTA start\n");
+    DEBUG_MSG(CORE, "OTA start\n");
   });
   ArduinoOTA.onEnd([]() {
-    DEBUG_CORE("[core] OTA end\n");
+    DEBUG_MSG(CORE, "OTA end\n");
 
     // save config after OTA Update
     if (SPIFFS.begin()) {
       File configFile = SPIFFS.open(F("/config.json"), "r");
       if (!configFile) {
-        DEBUG_CORE("[core] Config wiped by OTA - saving\n");
+        DEBUG_MSG(CORE, "config wiped by OTA - saving\n");
         saveConfig();
       }
       else {
@@ -150,7 +152,7 @@ void start_ota() {
     }
   });
   ArduinoOTA.onError([](ota_error_t error) {
-    DEBUG_CORE("[core] OTA error [%u]\n", error);
+    DEBUG_MSG(CORE, "OTA error [%u]\n", error);
   });
   ArduinoOTA.begin();
 #endif
@@ -161,7 +163,7 @@ void start_ota() {
  */
 void start_plugins()
 {
-  DEBUG_CORE("[core] starting plugins\n");
+  DEBUG_MSG(CORE, "starting plugins\n");
 #ifdef PLUGIN_ONEWIRE
   new OneWirePlugin(ONEWIRE_PIN);
 #endif
@@ -189,27 +191,22 @@ void setup()
 {
   // hardware serial
   Serial.begin(115200);
-  g_resetInfo = ESP.getResetInfoPtr();
   ets_install_putc1((void *) &_u0_putc);
   system_set_os_print(1);
 
-  DEBUG_CORE("\n\n[core] Booting...\n");
-  DEBUG_CORE("[core] Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
-  DEBUG_CORE("[core] Chip ID:    %05X\n", ESP.getChipId());
+  g_resetInfo = ESP.getResetInfoPtr();
+  DEBUG_MSG("core", "Booting...\n");
+  DEBUG_MSG(CORE, "Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
+  DEBUG_MSG(CORE, "Chip ID:    %05X\n", ESP.getChipId());
 
   // set hostname
   net_hostname += "-" + String(ESP.getChipId(), HEX);
   WiFi.hostname(net_hostname);
-  DEBUG_CORE("[core] Hostname:   %s\n", net_hostname.c_str());
-
-#ifdef DEBUG
-  // check flash settings
-  validateFlash();
-#endif
+  DEBUG_MSG(CORE, "Hostname:   %s\n", net_hostname.c_str());
 
   // initialize file system
   if (!SPIFFS.begin()) {
-    DEBUG_CORE("[core] Failed to mount file system.\n");
+    DEBUG_MSG(CORE, "Failed to mount file system.\n");
     return;
   }
 
@@ -221,34 +218,34 @@ void setup()
 
   // configuration changed - set new credentials
   if (loadConfig() && g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
-    DEBUG_CORE("[wifi] connecting to:  %s\n", WiFi.SSID().c_str());
+    DEBUG_MSG("wifi", "connecting to:  %s\n", WiFi.SSID().c_str());
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
   }
   else {
     // reconnect to sdk-configured station
-    DEBUG_CORE("[wifi] reconnecting to:  %s\n", WiFi.SSID().c_str());
+    DEBUG_MSG("wifi", "reconnecting to:  %s\n", WiFi.SSID().c_str());
     WiFi.begin();
   }
 
   // Check connection
   if (wifiConnect() == WL_CONNECTED) {
-    DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
+    DEBUG_MSG("wifi", "IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
 
 
   }
   else {
     // go into AP mode
-    DEBUG_CORE("[wifi] could not connect to WiFi - going into AP mode\n");
+    DEBUG_MSG("wifi", "could not connect to WiFi - going into AP mode\n");
 
     WiFi.mode(WIFI_AP); // WIFI_AP_STA
     delay(10);
 
     WiFi.softAP(ap_default_ssid);
-    DEBUG_CORE("[wifi] IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
+    DEBUG_MSG("wifi", "IP address: %d.%d.%d.%d\n", WiFi.softAPIP()[0], WiFi.softAPIP()[1], WiFi.softAPIP()[2], WiFi.softAPIP()[3]);
 
 #ifdef CAPTIVE_PORTAL
     // start DNS server for any domain
-    DEBUG_CORE("[wifi] starting captive DNS server\n");
+    DEBUG_MSG("wifi", "starting captive DNS server\n");
     dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
 #endif
   }
@@ -294,13 +291,13 @@ void loop()
   // check if deep sleep possible
   uint32_t sleep = getDeepSleepDurationMs();
   if (sleep > 0) {
-    DEBUG_CORE("[core] going to deep sleep for %ums\n", sleep);
+    DEBUG_MSG(CORE, "going to deep sleep for %ums\n", sleep);
     ESP.deepSleep(sleep * 1000);
   }
 
   // trigger restart?
   if (g_restartTime > 0 && millis() >= g_restartTime) {
-    DEBUG_CORE("[core] restarting...\n");
+    DEBUG_MSG(CORE, "restarting...\n");
     g_restartTime = 0;
     ESP.restart();
   }
@@ -308,22 +305,22 @@ void loop()
   // check WLAN if not AP
   if ((WiFi.getMode() & WIFI_AP) == 0) {  
     if (WiFi.status() != WL_CONNECTED) {
-      DEBUG_CORE("[core] wifi connection lost\n");
+      DEBUG_MSG(CORE, "wifi connection lost\n");
       WiFi.reconnect();
       if (wifiConnect() != WL_CONNECTED) {
-        DEBUG_CORE("[core] could not reconnect wifi - restarting\n");
+        DEBUG_MSG(CORE, "could not reconnect wifi - restarting\n");
         ESP.restart();
       }
     }
   }
 
-  if (millis() - print > 10000 || heap != ESP.getFreeHeap()) {
+  if (millis() - print > 10000 || heap > ESP.getFreeHeap()) {
     heap = ESP.getFreeHeap();
     if (heap < g_minFreeHeap)
       g_minFreeHeap = heap;
 
     umm_info(NULL, 0);
-    Serial.printf("[core] heap/cont/min: %d / %d / %d\n", heap, ummHeapInfo.maxFreeContiguousBlocks * 8, g_minFreeHeap);
+    DEBUG_MSG(CORE, "heap min: %d (%d blk, %d tot)\n", g_minFreeHeap, ummHeapInfo.maxFreeContiguousBlocks * 8, heap);
 
     print = millis();
   }

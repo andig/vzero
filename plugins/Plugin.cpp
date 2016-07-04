@@ -118,7 +118,7 @@ void Plugin::getSensorJson(JsonObject* json, int8_t sensor) {
 }
 
 bool Plugin::loadConfig() {
-  DEBUG_PLUGIN("[%s] load config %d\n", getName().c_str(), _size);
+  DEBUG_MSG(getName().c_str(), "load config %d\n", _size);
   File configFile = SPIFFS.open("/" + getName() + ".config", "r");
   if (configFile.size() == _size)
     configFile.read((uint8_t*)_devices, _size);
@@ -130,10 +130,10 @@ bool Plugin::loadConfig() {
 }
 
 bool Plugin::saveConfig() {
-  DEBUG_PLUGIN("[%s] save config %d\n", getName().c_str(), _size);
+  DEBUG_MSG(getName().c_str(), "save config %d\n", _size);
   File configFile = SPIFFS.open("/" + getName() + ".config", "w");
   if (!configFile) {
-    DEBUG_PLUGIN("[%s] failed to open config file for writing\n", getName().c_str());
+    DEBUG_MSG(getName().c_str(), "failed to open config file for writing\n");
     return false;
   }
   configFile.write((uint8_t*)_devices, _size);
@@ -142,7 +142,7 @@ bool Plugin::saveConfig() {
 }
 
 void Plugin::loop() {
-  // DEBUG_PLUGIN("[%s] loop %d\n", getName().c_str(), _status);
+  // DEBUG_MSG(getName().c_str(), "loop %d\n", _status);
 }
 
 void Plugin::upload() {
@@ -161,7 +161,6 @@ void Plugin::upload() {
       if (isnan(val))
         break;
 
-      DEBUG_PLUGIN("[%s] upload\n", getName().c_str());
       dtostrf(val, -4, 2, val_c);
 
       String uri = g_middleware + F("/data/") + String(uuid_c) + F(".json?value=") + String(val_c);
@@ -169,9 +168,8 @@ void Plugin::upload() {
       int httpCode = http.POST("");
       if (httpCode > 0) {
         http.getString();
-        DEBUG_HEAP();
       }
-      DEBUG_PLUGIN("[%s] upload %d %s\n", getName().c_str(), httpCode, uri.c_str());
+      DEBUG_MSG(getName().c_str(), "POST %d %s\n", httpCode, uri.c_str());
       http.end();
     }
   }
@@ -183,7 +181,7 @@ bool Plugin::isUploadSafe() {
     return false;
   bool isSafe = WiFi.status() == WL_CONNECTED && ESP.getFreeHeap() >= HTTP_MIN_HEAP;
   if (!isSafe) {
-    DEBUG_PLUGIN("[%s] cannot upload (wifi: %d mem:%d)\n", getName().c_str(), WiFi.status(), ESP.getFreeHeap());
+    DEBUG_MSG(getName().c_str(), "cannot upload (wifi: %d mem:%d)\n", WiFi.status(), ESP.getFreeHeap());
   }
   return isSafe;
 }

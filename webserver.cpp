@@ -25,13 +25,31 @@ extern "C" {
 
 
 #define CACHE_HEADER "max-age=86400"
+#define CORS_HEADER "Access-Control-Allow-Origin"
 
+#define CONTENT_TYPE_JSON "application/json"
+#define CONTENT_TYPE_PLAIN "text/plain"
+#define CONTENT_TYPE_HTML "text/html"
 
 uint32_t g_restartTime = 0;
 uint32_t g_lastAccessTime = 0;
 
 AsyncWebServer g_server(80);
 
+#ifdef BROWSER_EVENTS
+AsyncEventSource g_events("/events");
+
+void browser_event(const char *event, const char *format, ...) {
+  char buf[100] = {'\0'}; 
+  va_list args;
+
+  va_start(args, format);
+  vsnprintf(buf, 100, format, args);
+  va_end(args);
+
+  g_events.send(buf, event, millis(), 0);
+}
+#endif
 
 void requestRestart()
 {
@@ -43,7 +61,8 @@ void jsonResponse(AsyncWebServerRequest *request, int res, JsonVariant json)
   // touch
   g_lastAccessTime = millis();
 
-  AsyncResponseStream *response = request->beginResponseStream("application/json");
+  AsyncResponseStream *response = request->beginResponseStream(F(CONTENT_TYPE_JSON));
+  response->addHeader(F(CORS_HEADER), "*");
   json.printTo(*response);
   request->send(response);
 }
@@ -70,7 +89,7 @@ public:
   }
 
   void handleRequest(AsyncWebServerRequest *request) {
-    DEBUG_SERVER("[webserver] captive request to %s\n", request->url().c_str());
+    DEBUG_MSG(SERVER, "captive request to %s\n", request->url().c_str());
     String location = "http://" + WiFi.softAPIP().toString();
     if (request->host() == net_hostname + ".local")
       location += request->url();
@@ -85,9 +104,9 @@ public:
   }
 
   bool canHandle(AsyncWebServerRequest *request){
-    if(request->method() != HTTP_GET && request->method() != HTTP_POST)
+    if (request->method() != HTTP_GET && request->method() != HTTP_POST)
       return false;
-    if(!request->url().startsWith(_uri))
+    if (!request->url().startsWith(_uri))
       return false;
     return true;
   }
@@ -128,8 +147,8 @@ protected:
  */
 void handleNotFound(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] file not found %s\n", request->url().c_str());
-  request->send(404, F("text/plain"), F("File not found"));
+  DEBUG_MSG(SERVER, "file not found %s\n", request->url().c_str());
+  request->send(404, F(CONTENT_TYPE_PLAIN), F("File not found"));
 }
 
 /**
@@ -137,7 +156,7 @@ void handleNotFound(AsyncWebServerRequest *request)
  */
 void handleSettings(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_MSG(SERVER, "%s (%d args)\n", request->url().c_str(), request->params());
 
   String resp = F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>");
   String ssid = "";
@@ -159,7 +178,7 @@ void handleSettings(AsyncWebServerRequest *request)
     result = 200;
   }
   if (result == 400) {
-    request->send(result, F("text/plain"), F("Bad request\n\n"));
+    request->send(result, F(CONTENT_TYPE_PLAIN), F("Bad request\n\n"));
     return;
   }
 
@@ -174,7 +193,7 @@ void handleSettings(AsyncWebServerRequest *request)
   if (result == 200) {
     requestRestart();
   }
-  request->send(result, F("text/html"), resp);
+  request->send(result, F(CONTENT_TYPE_HTML), resp);
 }
 
 /**
@@ -182,7 +201,7 @@ void handleSettings(AsyncWebServerRequest *request)
  */
 void handleGetStatus(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_MSG(SERVER, "%s (%d args)\n", request->url().c_str(), request->params());
 
   StaticJsonBuffer<512> jsonBuffer;
   JsonObject& json = jsonBuffer.createObject();
@@ -214,7 +233,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
  */
 void handleGetPlugins(AsyncWebServerRequest *request)
 {
-  DEBUG_SERVER("[webserver] uri: %s args: %d\n", request->url().c_str(), request->params());
+  DEBUG_MSG(SERVER, "%s (%d args)\n", request->url().c_str(), request->params());
 
   DynamicJsonBuffer jsonBuffer;
   JsonArray& json = jsonBuffer.createArray();
@@ -235,7 +254,7 @@ void handleGetPlugins(AsyncWebServerRequest *request)
 void registerPlugins()
 {
   Plugin::each([](Plugin* plugin) {
-    DEBUG_SERVER("[webserver] plugin: %s\n", plugin->getName().c_str());
+    DEBUG_MSG(SERVER, "registering plugin: %s\n", plugin->getName().c_str());
 
     // register one handler per sensor
     String baseUri = "/api/" + plugin->getName() + "/";
@@ -244,7 +263,7 @@ void registerPlugins()
       char addr_c[20];
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
-      DEBUG_SERVER("[webserver] sensor: %s\n", uri.c_str());
+      DEBUG_MSG(SERVER, "registering sensor: %s\n", uri.c_str());
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
@@ -275,8 +294,8 @@ void handleWifiScan(AsyncWebServerRequest *request)
   }
   json += "]";
 
-  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", json);
-  response->addHeader("Access-Control-Allow-Origin", "*");
+  AsyncWebServerResponse *response = request->beginResponse(200, F(CONTENT_TYPE_JSON), json);
+  response->addHeader(F(CORS_HEADER), "*");
   request->send(response);
 }
 
@@ -299,10 +318,10 @@ void webserver_start()
 
   // CDN
   g_server.on("/js/jquery-2.1.4.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("http://code.jquery.com/jquery-2.1.4.min.js");
+    request->redirect(F("http://code.jquery.com/jquery-2.1.4.min.js"));
   }).setFilter(ON_STA_FILTER);
   g_server.on("/css/foundation.min.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css");
+    request->redirect(F("http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css"));
   }).setFilter(ON_STA_FILTER);
 
   // static, after CDN exceptions
@@ -314,7 +333,7 @@ void webserver_start()
   // GET
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
   g_server.on("/api/plugins", HTTP_GET, handleGetPlugins);
-  g_server.on("/scan", HTTP_GET, handleWifiScan);
+  g_server.on("/api/scan", HTTP_GET, handleWifiScan);
 
   // POST
   g_server.on("/settings", HTTP_POST, handleSettings);
@@ -323,7 +342,7 @@ void webserver_start()
     // response->addHeader("Location", net_hostname + ".local");
     // request->send(response);
 
-    request->send(200, F("text/html"), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
+    request->send(200, F(CONTENT_TYPE_HTML), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
   });
 
@@ -332,6 +351,10 @@ void webserver_start()
 
 #ifdef SPIFFS_EDITOR
   g_server.addHandler(new SPIFFSEditor());
+#endif
+
+#ifdef BROWSER_EVENTS
+  g_server.addHandler(&g_events);
 #endif
 
   // start server

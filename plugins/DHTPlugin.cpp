@@ -11,7 +11,7 @@
  */
 
 DHTPlugin::DHTPlugin(uint8_t pin, uint8_t type) : _dht(pin, type), Plugin(2, 2) {
-  DEBUG_PLUGIN("[DHTPlugin]\n");
+  DEBUG_MSG("dht", "plugin started\n");
   loadConfig();
   _dht.begin();
 }
@@ -65,7 +65,7 @@ void DHTPlugin::loop() {
       }
     }
     else {
-      DEBUG_PLUGIN("[dht] failed reading sensors\n");
+      DEBUG_MSG("dht", "failed reading sensors\n");
     }
   }
 }

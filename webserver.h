@@ -4,10 +4,10 @@
 
 #include "config.h"
 
-#ifdef DEBUG
-#define DEBUG_SERVER(...) ets_printf( __VA_ARGS__ ); if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); ets_printf("[core] heap min: %d\n", g_minFreeHeap); }
-#else
-#define DEBUG_SERVER(...) if (ESP.getFreeHeap() < g_minFreeHeap) g_minFreeHeap = ESP.getFreeHeap()
+#define SERVER "websrv"
+
+#ifdef BROWSER_EVENTS
+void browser_event(const char *event, const char *format, ...);
 #endif
 
 

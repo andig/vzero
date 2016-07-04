@@ -11,11 +11,17 @@
 #define DEBUG
 
 #ifdef DEBUG
-#define DEBUG_HEAP() if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); Serial.printf("[core] heap/min: %d\n", g_minFreeHeap); }
-#define DEBUG_CORE(...) Serial.printf( __VA_ARGS__ )
+void debug_plain(const char *msg);
+void debug_message(const char *module, const char *format, ...);
+void debug_mem();
+
+//browser_event("debug", __VA_ARGS__); 
+
+#define DEBUG_PLAIN(msg) debug_plain(msg)
+#define DEBUG_MSG(module, format, ...) if (1) { debug_message(module, format, ##__VA_ARGS__ ); debug_mem(); }
 #else
-#define DEBUG_HEAP() if (ESP.getFreeHeap() < g_minFreeHeap) g_minFreeHeap = ESP.getFreeHeap()
-#define DEBUG_CORE(...)
+#define DEBUG_PLAIN(msg)
+#define DEBUG_MSG(...) if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); }
 #endif
 
 /*
@@ -27,7 +33,9 @@
 // #define PLUGIN_DHT
 #define PLUGIN_ANALOG
 #define PLUGIN_WIFI
+
 // #define SPIFFS_EDITOR
+#define BROWSER_EVENTS
 
 // settings
 #define ONEWIRE_PIN 14
@@ -51,7 +59,8 @@
 #define HTTP_MIN_HEAP 4096
 
 // other defines
-#define BUILD "0.3.0"   // version
+#define CORE "core"		// module name
+#define BUILD "0.4.0"   // version
 #define WIFI_CONNECT_TIMEOUT 10000
 #define OPTIMISTIC_YIELD_TIME 10000
 
