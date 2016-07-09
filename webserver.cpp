@@ -219,11 +219,15 @@ void handleGetStatus(AsyncWebServerRequest *request)
     json[F("ip")] = getIP();
   }
 
+  long heap = ESP.getFreeHeap();
   json[F("uptime")] = millis();
-  json[F("heap")] = ESP.getFreeHeap();
+  json[F("heap")] = heap;
   json[F("minheap")] = g_minFreeHeap;
   json[F("resetcode")] = g_resetInfo->reason;
   // json[F("gpio")] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
+  
+  // reset free heap
+  g_minFreeHeap = heap;
 
   jsonResponse(request, 200, json);
 }
@@ -254,7 +258,7 @@ void handleGetPlugins(AsyncWebServerRequest *request)
 void registerPlugins()
 {
   Plugin::each([](Plugin* plugin) {
-    DEBUG_MSG(SERVER, "registering plugin: %s\n", plugin->getName().c_str());
+    DEBUG_MSG(SERVER, "register plugin: %s\n", plugin->getName().c_str());
 
     // register one handler per sensor
     String baseUri = "/api/" + plugin->getName() + "/";
@@ -263,7 +267,7 @@ void registerPlugins()
       char addr_c[20];
       plugin->getAddr(addr_c, sensor);
       uri += addr_c;
-      DEBUG_MSG(SERVER, "registering sensor: %s\n", uri.c_str());
+      DEBUG_MSG(SERVER, "register sensor: %s\n", uri.c_str());
 
       g_server.addHandler(new PluginRequestHandler(uri.c_str(), plugin, sensor));
     }
@@ -274,6 +278,8 @@ void handleWifiScan(AsyncWebServerRequest *request)
 {
   String json = "[";
   int n = WiFi.scanComplete();
+  DEBUG_MSG(SERVER, "scanning wifi (%d)\n", n);
+
   if (n == WIFI_SCAN_FAILED){
     WiFi.scanNetworks(true);
   } 
@@ -290,7 +296,7 @@ void handleWifiScan(AsyncWebServerRequest *request)
       json += "}";
     }
     WiFi.scanDelete();
-    WiFi.scanNetworks(true);
+    // WiFi.scanNetworks(true);
   }
   json += "]";
 
@@ -312,10 +318,6 @@ void webserver_start()
   g_server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
 #endif
 
-  // static
-  g_server.serveStatic("//", SPIFFS, "/index.html", CACHE_HEADER);
-  g_server.serveStatic("/index.html", SPIFFS, "/index.html", CACHE_HEADER);
-
   // CDN
   g_server.on("/js/jquery-2.1.4.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->redirect(F("http://code.jquery.com/jquery-2.1.4.min.js"));
@@ -323,12 +325,6 @@ void webserver_start()
   g_server.on("/css/foundation.min.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->redirect(F("http://cdnjs.cloudflare.com/ajax/libs/foundation/6.2.3/foundation.min.css"));
   }).setFilter(ON_STA_FILTER);
-
-  // static, after CDN exceptions
-  g_server.serveStatic("/icons", SPIFFS, "/icons", CACHE_HEADER);
-  g_server.serveStatic("/img", SPIFFS, "/img", CACHE_HEADER);
-  g_server.serveStatic("/js", SPIFFS, "/js", CACHE_HEADER);
-  g_server.serveStatic("/css", SPIFFS, "/css", CACHE_HEADER);
 
   // GET
   g_server.on("/api/status", HTTP_GET, handleGetStatus);
@@ -345,6 +341,14 @@ void webserver_start()
     request->send(200, F(CONTENT_TYPE_HTML), F("<!DOCTYPE html><html><head><meta http-equiv=\"refresh\" content=\"5; url=/\"></head><body>Restarting...<br/><img src=\"/img/loading.gif\"></body></html>"));
     requestRestart();
   });
+
+  // make sure config.json is not served!
+  g_server.on("/config.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(400);
+  });
+
+  // catch-all
+  g_server.serveStatic("/", SPIFFS, "/", CACHE_HEADER).setDefaultFile("index.html");
 
   // sensor api
   registerPlugins();
