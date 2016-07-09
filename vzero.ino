@@ -264,8 +264,8 @@ void setup()
   }
 }
 
-long print = 0;
-long heap = 0;
+long _minFreeHeap = 0;
+long _freeHeap = 0;
 
 /**
  * Loop
@@ -314,15 +314,16 @@ void loop()
     }
   }
 
-  if (millis() - print > 10000 || heap > ESP.getFreeHeap()) {
-    heap = ESP.getFreeHeap();
-    if (heap < g_minFreeHeap)
-      g_minFreeHeap = heap;
+  if (g_minFreeHeap != _minFreeHeap || ESP.getFreeHeap() != _freeHeap) {
+    _freeHeap = ESP.getFreeHeap();
+    if (_freeHeap < g_minFreeHeap)
+      g_minFreeHeap = _freeHeap;
+    _minFreeHeap = g_minFreeHeap;
 
     umm_info(NULL, 0);
-    DEBUG_MSG(CORE, "heap min: %d (%d blk, %d tot)\n", g_minFreeHeap, ummHeapInfo.maxFreeContiguousBlocks * 8, heap);
+    DEBUG_MSG(CORE, "heap min: %d (%d blk, %d tot)\n", g_minFreeHeap, ummHeapInfo.maxFreeContiguousBlocks * 8, _freeHeap);
 
-    print = millis();
+    // print = millis();
   }
   delay(1000);
 }

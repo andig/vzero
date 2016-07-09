@@ -42,6 +42,10 @@ void debug_message(const char *module, const char *format, ...) {
   vsnprintf(buf, BUFFER_SIZE, format, args);
   ets_printf(buf);
   va_end(args);
+
+  if (ESP.getFreeHeap() < g_minFreeHeap) { 
+    g_minFreeHeap = ESP.getFreeHeap(); 
+  }
 }
 
 void debug_mem() {
