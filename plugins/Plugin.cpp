@@ -110,7 +110,7 @@ void Plugin::getSensorJson(JsonObject* json, int8_t sensor) {
 
   float val = getValue(sensor);
   if (isnan(val))
-    (*json)[F("value")] = NULL;
+    (*json)[F("value")] = JSON_NULL;
   else
     (*json)[F("value")] = val;
 
@@ -118,19 +118,26 @@ void Plugin::getSensorJson(JsonObject* json, int8_t sensor) {
 }
 
 bool Plugin::loadConfig() {
-  DEBUG_MSG(getName().c_str(), "load config %d\n", _size);
   File configFile = SPIFFS.open("/" + getName() + ".config", "r");
-  if (configFile.size() == _size)
+  if (configFile.size() == _size) {
+    DEBUG_MSG(getName().c_str(), "loading config\n", _size);
     configFile.read((uint8_t*)_devices, _size);
+  }
+  else if (configFile.size() == 0)
+    DEBUG_MSG(getName().c_str(), "config not found\n", _size);
+  else
+    DEBUG_MSG(getName().c_str(), "config size mismatch\n", _size);
+
   for (int8_t sensor = 0; sensor<getSensors(); sensor++)
     if (strlen(_devices[sensor].uuid) != UUID_LENGTH)
       _devices[sensor].uuid[0] = '\0';
+
   configFile.close();
   return true;
 }
 
 bool Plugin::saveConfig() {
-  DEBUG_MSG(getName().c_str(), "save config %d\n", _size);
+  DEBUG_MSG(getName().c_str(), "saving config %d\n", _size);
   File configFile = SPIFFS.open("/" + getName() + ".config", "w");
   if (!configFile) {
     DEBUG_MSG(getName().c_str(), "failed to open config file for writing\n");

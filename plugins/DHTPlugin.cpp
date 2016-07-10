@@ -65,6 +65,11 @@ void DHTPlugin::loop() {
       }
     }
     else {
+      _devices[0].val = NAN;
+      _devices[1].val = NAN;
+
+      // retry failed read only after SLEEP_PERIOD
+      _status = PLUGIN_IDLE;
       DEBUG_MSG("dht", "failed reading sensors\n");
     }
   }

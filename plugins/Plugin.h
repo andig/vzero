@@ -13,7 +13,7 @@
 #define PLUGIN_UPLOADING 1
 
 #define UUID_LENGTH 36
-
+#define JSON_NULL static_cast<const char*>(NULL)
 
 struct DeviceStruct {
   char uuid[UUID_LENGTH+1];

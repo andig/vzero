@@ -38,11 +38,6 @@ const byte DNS_PORT = 53;
 DNSServer dnsServer;
 #endif
 
-extern "C" {
-  #include <user_interface.h>
-  #include <umm_malloc/umm_malloc.h>
-}
-
 enum operation_t {
   OPERATION_NORMAL = 0, // deep sleep forbidden
   OPERATION_SLEEP =  1  // deep sleep allowed
@@ -99,7 +94,7 @@ uint32_t getDeepSleepDurationMs()
   // don't sleep if client connected
   if (millis() - g_lastAccessTime < WIFI_CLIENT_TIMEOUT)
     return 0;
-    
+
   // check if deep sleep possible
   uint32_t maxSleep = -1; // max uint32_t
   Plugin::each([&maxSleep](Plugin* plugin) {
@@ -108,11 +103,11 @@ uint32_t getDeepSleepDurationMs()
     if (sleep < maxSleep)
       maxSleep = sleep;
   });
-  
+
   // valid sleep window found?
   if (maxSleep == -1 || maxSleep < MIN_SLEEP_DURATION_MS)
     return 0;
-    
+
   return maxSleep - SLEEP_SAFETY_MARGIN;
 #endif
 }
@@ -195,7 +190,8 @@ void setup()
   system_set_os_print(1);
 
   g_resetInfo = ESP.getResetInfoPtr();
-  DEBUG_MSG("core", "Booting...\n");
+  DEBUG_PLAIN("\n");
+  DEBUG_MSG(CORE, "Booting...\n");
   DEBUG_MSG(CORE, "Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
   DEBUG_MSG(CORE, "Chip ID:    %05X\n", ESP.getChipId());
 
@@ -206,7 +202,7 @@ void setup()
 
   // initialize file system
   if (!SPIFFS.begin()) {
-    DEBUG_MSG(CORE, "Failed to mount file system.\n");
+    DEBUG_MSG(CORE, "failed mounting file system\n");
     return;
   }
 
@@ -218,20 +214,18 @@ void setup()
 
   // configuration changed - set new credentials
   if (loadConfig() && g_ssid != "" && (String(WiFi.SSID()) != g_ssid || String(WiFi.psk()) != g_pass)) {
-    DEBUG_MSG("wifi", "connecting to:  %s\n", WiFi.SSID().c_str());
+    DEBUG_MSG("wifi", "connect:    %s\n", WiFi.SSID().c_str());
     WiFi.begin(g_ssid.c_str(), g_pass.c_str());
   }
   else {
     // reconnect to sdk-configured station
-    DEBUG_MSG("wifi", "reconnecting to:  %s\n", WiFi.SSID().c_str());
+    DEBUG_MSG("wifi", "reconnect:  %s\n", WiFi.SSID().c_str());
     WiFi.begin();
   }
 
   // Check connection
   if (wifiConnect() == WL_CONNECTED) {
     DEBUG_MSG("wifi", "IP address: %d.%d.%d.%d\n", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
-
-
   }
   else {
     // go into AP mode
@@ -303,7 +297,7 @@ void loop()
   }
 
   // check WLAN if not AP
-  if ((WiFi.getMode() & WIFI_AP) == 0) {  
+  if ((WiFi.getMode() & WIFI_AP) == 0) {
     if (WiFi.status() != WL_CONNECTED) {
       DEBUG_MSG(CORE, "wifi connection lost\n");
       WiFi.reconnect();

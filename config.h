@@ -5,6 +5,11 @@
 #include <WString.h>
 #include <MD5Builder.h>
 
+extern "C" {
+  #include <user_interface.h>
+  #include <umm_malloc/umm_malloc.h>
+}
+
 /*
  * Configuration
  */
@@ -13,12 +18,11 @@
 #ifdef DEBUG
 void debug_plain(const char *msg);
 void debug_message(const char *module, const char *format, ...);
-void debug_mem();
 
-//browser_event("debug", __VA_ARGS__); 
+//browser_event("debug", __VA_ARGS__);
 
 #define DEBUG_PLAIN(msg) debug_plain(msg)
-#define DEBUG_MSG(module, format, ...) if (1) { debug_message(module, format, ##__VA_ARGS__ ); debug_mem(); }
+#define DEBUG_MSG(module, format, ...) debug_message(module, format, ##__VA_ARGS__ )
 #else
 #define DEBUG_PLAIN(msg)
 #define DEBUG_MSG(...) if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); }
@@ -29,8 +33,8 @@ void debug_mem();
  */
 #define OTA_SERVER
 #define CAPTIVE_PORTAL
-// #define PLUGIN_ONEWIRE
-// #define PLUGIN_DHT
+#define PLUGIN_ONEWIRE
+#define PLUGIN_DHT
 #define PLUGIN_ANALOG
 #define PLUGIN_WIFI
 
@@ -68,7 +72,7 @@ void debug_mem();
 /*
  * Variables
  */
- 
+
 // default WiFi connection information.
 extern const char* ap_default_ssid; // default SSID
 extern const char* ap_default_psk;  // default PSK
@@ -87,7 +91,7 @@ extern String g_middleware;
 /*
  * Functions
  */
- 
+
 #ifdef DEBUG
 void validateFlash();
 #endif
@@ -97,4 +101,3 @@ String getHash();
 
 bool loadConfig();
 bool saveConfig();
-

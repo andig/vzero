@@ -18,11 +18,6 @@
 #include "SPIFFSEditor.h"
 #endif
 
-// required for rst_info
-extern "C" {
-#include <user_interface.h>
-}
-
 
 #define CACHE_HEADER "max-age=86400"
 #define CORS_HEADER "Access-Control-Allow-Origin"
@@ -40,7 +35,7 @@ AsyncWebServer g_server(80);
 AsyncEventSource g_events("/events");
 
 void browser_event(const char *event, const char *format, ...) {
-  char buf[100] = {'\0'}; 
+  char buf[100] = {'\0'};
   va_list args;
 
   va_start(args, format);
@@ -80,9 +75,9 @@ public:
   }
 
   bool canHandle(AsyncWebServerRequest *request){
-    // redirect if not in wifi client mode (through filter)  
+    // redirect if not in wifi client mode (through filter)
     // and request for different host (due to DNS * response)
-    if (request->host() != WiFi.softAPIP().toString()) 
+    if (request->host() != WiFi.softAPIP().toString())
       return true;
     else
       return false;
@@ -116,15 +111,17 @@ public:
     JsonObject& json = jsonBuffer.createObject();
     int res = 400; // JSON error
 
-    // GET
+    // GET - get sensor value
     if (request->method() == HTTP_GET && request->params() == 0) {
       float val = _plugin->getValue(_sensor);
-      if (val != NAN) {
+      if (isnan(val))
+        json["value"] = JSON_NULL;
+      else {
         json["value"] = val;
         res = 200;
       }
     }
-    // POST
+    // POST - set sensor UUID
     else if ((request->method() == HTTP_POST || request->method() == HTTP_GET)
       && request->params() == 1 && request->hasParam("uuid")) {
       String uuid = request->getParam(0)->value();
@@ -136,6 +133,7 @@ public:
 
     jsonResponse(request, res, json);
   }
+
 protected:
   String _uri;
   Plugin* _plugin;
@@ -225,7 +223,7 @@ void handleGetStatus(AsyncWebServerRequest *request)
   json[F("minheap")] = g_minFreeHeap;
   json[F("resetcode")] = g_resetInfo->reason;
   // json[F("gpio")] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
-  
+
   // reset free heap
   g_minFreeHeap = heap;
 
@@ -282,7 +280,7 @@ void handleWifiScan(AsyncWebServerRequest *request)
 
   if (n == WIFI_SCAN_FAILED){
     WiFi.scanNetworks(true);
-  } 
+  }
   else if (n > 0) { // scan finished
     for (int i = 0; i < n; ++i) {
       if (i) json += ",";
@@ -295,6 +293,7 @@ void handleWifiScan(AsyncWebServerRequest *request)
       json += ",\"hidden\":" + String(WiFi.isHidden(i) ? "true" : "false");
       json += "}";
     }
+    // save scan result memory
     WiFi.scanDelete();
     // WiFi.scanNetworks(true);
   }

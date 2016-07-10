@@ -131,7 +131,7 @@ bool OneWirePlugin::loadConfig() {
   if (configFile.size() == sizeof(_devices)) {
     DEBUG_MSG("1wire", "reading config file\n");
     configFile.read((uint8_t*)_devices, sizeof(_devices));
-  
+
     // find first empty device slot
     DeviceAddress addr = {};
     char addr_c[20];
@@ -161,13 +161,17 @@ bool OneWirePlugin::saveConfig() {
 void OneWirePlugin::loop() {
   Plugin::loop();
 
+  // exit if no sensors found
+  if (!_devs)
+    return;
+
   if (_status == PLUGIN_IDLE && elapsed(SLEEP_PERIOD - REQUEST_WAIT_DURATION)) {
-    DEBUG_MSG("1wire", "loop (REQUESTING)\n");
+    DEBUG_MSG("1wire", "requesting temp\n");
     _status = PLUGIN_REQUESTING;
     sensors.requestTemperatures();
   }
   else if (_status == PLUGIN_REQUESTING && elapsed(REQUEST_WAIT_DURATION)) {
-    DEBUG_MSG("1wire", "loop (UPLOADING)\n");
+    DEBUG_MSG("1wire", "reading temp\n");
     _status = PLUGIN_UPLOADING;
     readTemperatures();
   }

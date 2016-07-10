@@ -32,26 +32,20 @@ void debug_plain(const char *msg) {
 /**
  * Verbose debug output
  */
-#define BUFFER_SIZE 150
 void debug_message(const char *module, const char *format, ...) {
-  ets_printf("[%-6s] ", module);
+  #define BUFFER_SIZE 150
+  char buf[BUFFER_SIZE];
+  ets_printf("%08d [%-6s] ", millis(), module);
+  // snprintf(buf, BUFFER_SIZE, "%6.3f [%-6s] ", millis()/1000.0, module);
 
   va_list args;
-  char buf[BUFFER_SIZE];
   va_start(args, format);
   vsnprintf(buf, BUFFER_SIZE, format, args);
   ets_printf(buf);
   va_end(args);
 
-  if (ESP.getFreeHeap() < g_minFreeHeap) { 
-    g_minFreeHeap = ESP.getFreeHeap(); 
-  }
-}
-
-void debug_mem() {
-  if (ESP.getFreeHeap() < g_minFreeHeap) { 
-    g_minFreeHeap = ESP.getFreeHeap(); 
-    debug_message("core", "heap min: %d\n", g_minFreeHeap); 
+  if (ESP.getFreeHeap() < g_minFreeHeap) {
+    g_minFreeHeap = ESP.getFreeHeap();
   }
 }
 #endif
@@ -93,9 +87,13 @@ String getHash()
  */
 bool loadConfig()
 {
+  DEBUG_MSG(CORE, "loading config\n");
   File configFile = SPIFFS.open(F("/config.json"), "r");
-  if (!configFile)
+  if (!configFile) {
+    DEBUG_MSG(CORE, "open config failed");
     return false;
+  }
+
   size_t size = configFile.size();
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
@@ -111,10 +109,10 @@ bool loadConfig()
   arg = json["middleware"].asString();
   if (arg) g_middleware = arg;
 
-  DEBUG_MSG(CORE, "config ssid:   %s\n", g_ssid.c_str());
+  DEBUG_MSG(CORE, "ssid:       %s\n", g_ssid.c_str());
   // DEBUG_MSG(CORE, "config psk:    %s\n", g_pass.c_str());
-  DEBUG_MSG(CORE, "middleware:    %s\n", g_middleware.c_str());
-  
+  DEBUG_MSG(CORE, "middleware: %s\n", g_middleware.c_str());
+
   return true;
 }
 
@@ -125,7 +123,7 @@ bool saveConfig()
 {
   File configFile = SPIFFS.open(F("/config.json"), "w");
   if (!configFile) {
-    Serial.println(F("Failed to open config file for writing"));
+    DEBUG_MSG(CORE, "save config failed");
     return false;
   }
 
@@ -140,4 +138,3 @@ bool saveConfig()
 
   return true;
 }
-
