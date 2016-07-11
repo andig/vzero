@@ -4,6 +4,8 @@
 
 #include <WString.h>
 #include <MD5Builder.h>
+// TODO remove platformio workaround
+#include <Hash.h>
 
 extern "C" {
   #include <user_interface.h>

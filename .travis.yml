@@ -1,45 +1,60 @@
 sudo: false
+language: python
+python:
+  - "2.7"
 
-language: bash
+cache:
+  directories:
+    - "~/.platformio"
 
-os:
-  - linux
+env:
+  matrix:
+    - PLATFORMIO=1
+    - ARDUINO=1
 
 before_install:
-  - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16"
-  - "export DISPLAY=:99.0"
+  # arduino prereqs
+  - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16
+  - export DISPLAY=:99.0
   - sleep 3 # give xvfb some time to start
 
-before_script:
-  # install ide
-  - wget http://downloads.arduino.cc/arduino-1.6.7-linux64.tar.xz
-  - tar xf arduino-1.6.7-linux64.tar.xz
-  - mv arduino-1.6.7 $HOME/arduino_ide
-  - export PATH="$HOME/arduino_ide:$PATH"
-  - which arduino
+install:
+  # install arduino ide
+  - if [ "$ARDUINO" ]; then wget http://downloads.arduino.cc/arduino-1.6.9-linux64.tar.xz; fi
+  - if [ "$ARDUINO" ]; then tar xf arduino-1.6.9-linux64.tar.xz; fi
+  - if [ "$ARDUINO" ]; then mv arduino-1.6.9 $HOME/arduino_ide; fi
+  - if [ "$ARDUINO" ]; then export PATH="$HOME/arduino_ide:$PATH"; fi
+  - if [ "$ARDUINO" ]; then which arduino; fi
 
   # install arduino core
-  - cd $HOME/arduino_ide/hardware
-  - mkdir esp8266com
-  - cd esp8266com
-  - git clone https://github.com/esp8266/Arduino.git esp8266
-  - cd esp8266/tools
-  - python get.py
+  - if [ "$ARDUINO" ]; then cd $HOME/arduino_ide/hardware; fi
+  - if [ "$ARDUINO" ]; then mkdir esp8266com; fi
+  - if [ "$ARDUINO" ]; then cd esp8266com; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/esp8266/Arduino.git esp8266; fi
+  - if [ "$ARDUINO" ]; then cd esp8266/tools; fi
+  - if [ "$ARDUINO" ]; then python get.py; fi
 
-  # install libraries
-  - mkdir -p $HOME/Arduino/libraries
-  - git clone https://github.com/bblanchon/ArduinoJson $HOME/Arduino/libraries/ArduinoJson
-  - git clone https://github.com/adafruit/DHT-sensor-library.git $HOME/Arduino/libraries/DHT
-  - git clone https://github.com/PaulStoffregen/OneWire.git $HOME/Arduino/libraries/OneWire
-  - git clone https://github.com/me-no-dev/ESPAsyncTCP $HOME/Arduino/libraries/ESPAsyncTCP
-  - git clone https://github.com/me-no-dev/ESPAsyncWebServer $HOME/Arduino/libraries/ESPAsyncWebServer
+  # install platformio
+  - if [ "$PLATFORMIO" ]; then pip install -U platformio; fi
 
+  # install arduino libraries
+  - if [ "$ARDUINO" ]; then mkdir -p $HOME/Arduino/libraries; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/bblanchon/ArduinoJson $HOME/Arduino/libraries/ArduinoJson; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/adafruit/DHT-sensor-library.git $HOME/Arduino/libraries/DHT; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/PaulStoffregen/OneWire.git $HOME/Arduino/libraries/OneWire; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/milesburton/Arduino-Temperature-Control-Library $HOME/Arduino/libraries/DallasTemperature; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/me-no-dev/ESPAsyncTCP $HOME/Arduino/libraries/ESPAsyncTCP; fi
+  - if [ "$ARDUINO" ]; then git clone https://github.com/me-no-dev/ESPAsyncWebServer $HOME/Arduino/libraries/ESPAsyncWebServer; fi
 
 script:
-  - cd $TRAVIS_BUILD_DIR
-  - source misc/common.sh
-  - ls -l
+  # arduino build
+  - if [ "$ARDUINO" ]; then cd $TRAVIS_BUILD_DIR; fi
+  - if [ "$ARDUINO" ]; then source misc/common.sh; fi
+  - if [ "$ARDUINO" ]; then ls -l; fi
 
-  - arduino --board esp8266com:esp8266:generic --save-prefs
-  - arduino --get-pref sketchbook.path
-  - build_sketch $PWD/vzero.ino esp8266
+  - if [ "$ARDUINO" ]; then arduino --board esp8266com:esp8266:generic --save-prefs; fi
+  - if [ "$ARDUINO" ]; then arduino --get-pref sketchbook.path; fi
+  - if [ "$ARDUINO" ]; then build_sketch $PWD/vzero.ino esp8266; fi
+
+  # platformio build
+  - if [ "$PLATFORMIO" ]; then platformio ci --project-conf ./platformio.ini .; fi

@@ -4,6 +4,7 @@
  * @author Andreas Goetz <cpuidle@gmx.de>
  */
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <FS.h>
 
