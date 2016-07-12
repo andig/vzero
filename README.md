@@ -1,6 +1,8 @@
 # vzero
 VZero - the Wireless zero-config controller for volkszaehler.org
 
+[![Build Status](https://travis-ci.org/andig/vzero.svg?branch=master)](https://travis-ci.org/andig/vzero)
+
 ## Plugins
 
 VZero has an extensible plugin framework. Out of the box the following sensor plugins are supported:
