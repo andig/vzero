@@ -16,6 +16,7 @@ extern "C" {
  * Configuration
  */
 #define DEBUG
+#define BROWSER_EVENTS
 
 #ifdef DEBUG
 void debug_plain(const char *msg);
@@ -41,7 +42,6 @@ void debug_message(const char *module, const char *format, ...);
 #define PLUGIN_WIFI
 
 // #define SPIFFS_EDITOR
-#define BROWSER_EVENTS
 
 // settings
 #define ONEWIRE_PIN 14
@@ -103,3 +103,5 @@ String getHash();
 
 bool loadConfig();
 bool saveConfig();
+
+void start_plugins();

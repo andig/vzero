@@ -10,6 +10,22 @@
 
 #include "config.h"
 
+#ifdef PLUGIN_ONEWIRE
+#include "plugins/OneWirePlugin.h"
+#endif
+
+#ifdef PLUGIN_DHT
+#include "plugins/DHTPlugin.h"
+#endif
+
+#ifdef PLUGIN_ANALOG
+#include "plugins/AnalogPlugin.h"
+#endif
+
+#ifdef PLUGIN_WIFI
+#include "plugins/WifiPlugin.h"
+#endif
+
 // default AP SSID
 const char* ap_default_ssid = "VZERO";
 
@@ -137,4 +153,24 @@ bool saveConfig()
   configFile.close();
 
   return true;
+}
+
+/**
+ * Start enabled plugins
+ */
+void start_plugins()
+{
+  DEBUG_MSG(CORE, "starting plugins\n");
+#ifdef PLUGIN_ONEWIRE
+  new OneWirePlugin(ONEWIRE_PIN);
+#endif
+#ifdef PLUGIN_DHT
+  new DHTPlugin(DHT_PIN, DHT_TYPE);
+#endif
+#ifdef PLUGIN_ANALOG
+  new AnalogPlugin();
+#endif
+#ifdef PLUGIN_WIFI
+  new WifiPlugin();
+#endif
 }

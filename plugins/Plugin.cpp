@@ -28,6 +28,11 @@ void Plugin::each(CallbackFunction callback) {
 Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDevices),
   _status(PLUGIN_IDLE), _timestamp(0), _duration(0)
 {
+  if (Plugin::instances >= MAX_PLUGINS-1) {
+    DEBUG_MSG("plugin", "too many plugins - panic");
+    panic();
+  }
+
   Plugin::plugins[Plugin::instances++] = this;
   Plugin::http.setReuse(true); // allow reuse (if server supports it)
 
@@ -35,7 +40,7 @@ Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDe
   _size = maxDevices * sizeof(DeviceStruct);
 
   if (maxDevices > 0) {
-    // DEBUG_PLUGIN("[abstract]: alloc %d -> %d\n", maxDevices, _size);
+    // DEBUG_MSG("plugin", "alloc %d -> %d\n", maxDevices, _size);
     _devices = (DeviceStruct*)malloc(_size);
     if (_devices == NULL)
       panic();
