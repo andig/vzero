@@ -14,6 +14,10 @@
 #include "urlfunctions.h"
 #include "plugins/Plugin.h"
 
+#ifdef BROWSER_EVENTS
+#include <AsyncEventSource.h>
+#endif
+
 #ifdef SPIFFS_EDITOR
 #include "SPIFFSEditor.h"
 #endif
