@@ -12,22 +12,6 @@
 #include "webserver.h"
 #include "plugins/Plugin.h"
 
-#ifdef PLUGIN_ONEWIRE
-#include "plugins/OneWirePlugin.h"
-#endif
-
-#ifdef PLUGIN_DHT
-#include "plugins/DHTPlugin.h"
-#endif
-
-#ifdef PLUGIN_ANALOG
-#include "plugins/AnalogPlugin.h"
-#endif
-
-#ifdef PLUGIN_WIFI
-#include "plugins/WifiPlugin.h"
-#endif
-
 #ifdef OTA_SERVER
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
@@ -154,26 +138,6 @@ void start_ota() {
 #endif
 }
 
-/**
- * Start enabled plugins
- */
-void start_plugins()
-{
-  DEBUG_MSG(CORE, "starting plugins\n");
-#ifdef PLUGIN_ONEWIRE
-  new OneWirePlugin(ONEWIRE_PIN);
-#endif
-#ifdef PLUGIN_DHT
-  new DHTPlugin(DHT_PIN, DHT_TYPE);
-#endif
-#ifdef PLUGIN_ANALOG
-  new AnalogPlugin();
-#endif
-#ifdef PLUGIN_WIFI
-  new WifiPlugin();
-#endif
-}
-
 // use the internal hardware buffer
 static void _u0_putc(char c) {
   while(((U0S >> USTXC) & 0x7F) == 0x7F);
@@ -261,12 +225,17 @@ void setup()
 
 long _minFreeHeap = 0;
 long _freeHeap = 0;
+long _tsMillis = 0;
+long _loopMillis = 0;
 
 /**
  * Loop
  */
 void loop()
 {
+  // loop duration
+  _tsMillis = millis();
+
 #ifdef CAPTIVE_PORTAL
   dnsServer.processNextRequest();
 #endif
@@ -309,6 +278,9 @@ void loop()
     }
   }
 
+  // loop duration without debug
+  _loopMillis = millis() - _tsMillis;
+
   if (g_minFreeHeap != _minFreeHeap || ESP.getFreeHeap() != _freeHeap) {
     _freeHeap = ESP.getFreeHeap();
     if (_freeHeap < g_minFreeHeap)
@@ -318,7 +290,9 @@ void loop()
     umm_info(NULL, 0);
     DEBUG_MSG(CORE, "heap min: %d (%d blk, %d tot)\n", g_minFreeHeap, ummHeapInfo.maxFreeContiguousBlocks * 8, _freeHeap);
 
-    // print = millis();
+    // loop duration
+    DEBUG_MSG(CORE, "loop %ums\n", _loopMillis);
   }
+
   delay(1000);
 }
