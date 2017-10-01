@@ -2,7 +2,15 @@
  * Config file
  */
 
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
+#endif
+
+#if defined(ESP31B) || defined(ESP32)
+#include <Wifi.h>
+#include "SPIFFS.h"
+#endif
+
 #include <MD5Builder.h>
 #include <WString.h>
 #include <FS.h>
@@ -30,7 +38,9 @@
 const char* ap_default_ssid = "VZERO";
 
 // global vars
+#ifdef ESP8266
 rst_info* g_resetInfo;
+#endif
 String net_hostname = "vzero";
 uint32_t g_minFreeHeap = -1;
 
@@ -66,6 +76,18 @@ void debug_message(const char *module, const char *format, ...) {
 }
 #endif
 
+long getChipId()
+{
+#ifdef ESP8266
+  return ESP.getChipId();
+#endif
+#if defined(ESP31B) || defined(ESP32)
+  long chipId;
+  ESP.getEfuseMac();
+  return chipId;
+#endif
+}
+
 /**
  * Hash builder initialized with unique module identifiers
  */
@@ -76,12 +98,14 @@ MD5Builder getHashBuilder()
   MD5Builder md5;
   md5.begin();
 
-  long chipId = ESP.getChipId();
+  uint64_t chipId = getChipId();
   md5.add((uint8_t*)&chipId, 4);
 
+#ifdef ESP8266
   uint32_t flashId = ESP.getFlashChipId();
   md5.add((uint8_t*)&flashId, 2);
-
+#endif
+  
   WiFi.macAddress(&mac[0]);
   md5.add(&mac[0], 6);
 
@@ -118,11 +142,11 @@ bool loadConfig()
   String arg;
   StaticJsonBuffer<512> jsonBuffer;
   JsonObject& json = jsonBuffer.parseObject(buf.get());
-  arg = json["ssid"].asString();
+  arg = json["ssid"].as<char*>();
   if (arg) g_ssid = arg;
-  arg = json["password"].asString();
+  arg = json["password"].as<char*>();
   if (arg) g_pass = arg;
-  arg = json["middleware"].asString();
+  arg = json["middleware"].as<char*>();
   if (arg) g_middleware = arg;
 
   DEBUG_MSG(CORE, "ssid:       %s\n", g_ssid.c_str());

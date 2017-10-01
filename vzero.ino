@@ -4,16 +4,44 @@
  * @author Andreas Goetz <cpuidle@gmx.de>
  */
 
-#include <Arduino.h>
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
+#ifdef OTA_SERVER
+  #include <ESP8266mDNS.h>
+#endif
+#endif
+
+#if defined(ESP31B) || defined(ESP32)
+#include <Wifi.h>
+#include <SPIFFS.h>
+#ifdef OTA_SERVER
+  #include <ESPmDNS.h>
+#endif
+#endif
+
 #include <FS.h>
 
 #include "config.h"
 #include "webserver.h"
 #include "plugins/Plugin.h"
 
+#ifdef PLUGIN_ONEWIRE
+#include "plugins/OneWirePlugin.h"
+#endif
+
+#ifdef PLUGIN_DHT
+#include "plugins/DHTPlugin.h"
+#endif
+
+#ifdef PLUGIN_ANALOG
+#include "plugins/AnalogPlugin.h"
+#endif
+
+#ifdef PLUGIN_WIFI
+#include "plugins/WifiPlugin.h"
+#endif
+
 #ifdef OTA_SERVER
-#include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #endif
 
@@ -138,11 +166,33 @@ void start_ota() {
 #endif
 }
 
+/**
+ * Start enabled plugins
+ */
+void start_plugins()
+{
+  DEBUG_MSG(CORE, "starting plugins\n");
+#ifdef PLUGIN_ONEWIRE
+  new OneWirePlugin(ONEWIRE_PIN);
+#endif
+#ifdef PLUGIN_DHT
+  new DHTPlugin(DHT_PIN, DHT_TYPE);
+#endif
+#ifdef PLUGIN_ANALOG
+  new AnalogPlugin();
+#endif
+#ifdef PLUGIN_WIFI
+  new WifiPlugin();
+#endif
+}
+
+#ifdef ESP8266
 // use the internal hardware buffer
 static void _u0_putc(char c) {
   while(((U0S >> USTXC) & 0x7F) == 0x7F);
   U0F = c;
 }
+#endif
 
 /**
  * Setup
@@ -158,10 +208,10 @@ void setup()
   DEBUG_PLAIN("\n");
   DEBUG_MSG(CORE, "Booting...\n");
   DEBUG_MSG(CORE, "Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
-  DEBUG_MSG(CORE, "Chip ID:    %05X\n", ESP.getChipId());
+  DEBUG_MSG(CORE, "Chip ID:    %05X\n", getChipId());
 
   // set hostname
-  net_hostname += "-" + String(ESP.getChipId(), HEX);
+  net_hostname += "-" + String(getChipId(), HEX);
   WiFi.hostname(net_hostname);
   DEBUG_MSG(CORE, "Hostname:   %s\n", net_hostname.c_str());
 

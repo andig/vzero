@@ -2,11 +2,19 @@
 #define PLUGIN_H
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
+#ifdef ESP8266
+  #include <ESP8266WiFi.h>
+  #include <ESP8266HTTPClient.h>
+#endif
+#if defined(ESP31B) || defined(ESP32)
+  #include <WiFi.h>
+  #include <HTTPClient.h>
+#endif
 #include <ArduinoJson.h>
 #include "../config.h"
 
+
+#define MAX_PLUGINS 5
 
 // plugin states
 #define PLUGIN_IDLE 0

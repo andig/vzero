@@ -3,6 +3,9 @@
 #include <FS.h>
 #include "Plugin.h"
 
+#if defined(ESP31B) || defined(ESP32)
+#include <SPIFFS.h>
+#endif
 
 #define MAX_PLUGINS 5
 
@@ -28,9 +31,9 @@ void Plugin::each(CallbackFunction callback) {
 Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDevices),
   _status(PLUGIN_IDLE), _timestamp(0), _duration(0)
 {
-  if (Plugin::instances >= MAX_PLUGINS-1) {
+  if (Plugin::instances > MAX_PLUGINS) {
     DEBUG_MSG("plugin", "too many plugins - panic");
-    panic();
+    PANIC();
   }
 
   Plugin::plugins[Plugin::instances++] = this;
@@ -43,7 +46,7 @@ Plugin::Plugin(int8_t maxDevices = 0, int8_t actualDevices = 0) : _devs(actualDe
     // DEBUG_MSG("plugin", "alloc %d -> %d\n", maxDevices, _size);
     _devices = (DeviceStruct*)malloc(_size);
     if (_devices == NULL)
-      panic();
+      PANIC();
   }
 }
 

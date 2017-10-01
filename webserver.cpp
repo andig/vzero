@@ -3,7 +3,6 @@
  */
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -16,6 +15,15 @@
 
 #ifdef BROWSER_EVENTS
 #include <AsyncEventSource.h>
+#endif
+
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#endif
+
+#if defined(ESP31B) || defined(ESP32)
+#include <Wifi.h>
+#include "SPIFFS.h"
 #endif
 
 #ifdef SPIFFS_EDITOR

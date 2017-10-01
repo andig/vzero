@@ -4,13 +4,13 @@
 
 #include <WString.h>
 #include <MD5Builder.h>
-// TODO remove platformio workaround
-#include <Hash.h>
 
+#ifdef ESP8266
 extern "C" {
   #include <user_interface.h>
   #include <umm_malloc/umm_malloc.h>
 }
+#endif
 
 /*
  * Configuration
@@ -31,6 +31,13 @@ void debug_message(const char *module, const char *format, ...);
 #define DEBUG_MSG(...) if (ESP.getFreeHeap() < g_minFreeHeap) { g_minFreeHeap = ESP.getFreeHeap(); }
 #endif
 
+#ifdef ESP8266
+#define PANIC(...) panic()
+#endif
+#if defined(ESP31B) || defined(ESP32)
+#define PANIC(...) abort()
+#endif
+
 /*
  * Plugins
  */
@@ -42,6 +49,7 @@ void debug_message(const char *module, const char *format, ...);
 #define PLUGIN_WIFI
 
 // #define SPIFFS_EDITOR
+#define BROWSER_EVENTS
 
 // settings
 #define ONEWIRE_PIN 14
@@ -80,7 +88,9 @@ extern const char* ap_default_ssid; // default SSID
 extern const char* ap_default_psk;  // default PSK
 
 // global vars
+#ifdef ESP8266
 extern rst_info* g_resetInfo;
+#endif
 extern String net_hostname;
 extern uint32_t g_minFreeHeap;
 
@@ -98,10 +108,10 @@ extern String g_middleware;
 void validateFlash();
 #endif
 
+long getChipId();
+
 MD5Builder getHashBuilder();
 String getHash();
 
 bool loadConfig();
 bool saveConfig();
-
-void start_plugins();
