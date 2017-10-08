@@ -108,6 +108,8 @@ extern String g_middleware;
 void validateFlash();
 #endif
 
+void startPlugins();
+
 long getChipId();
 
 MD5Builder getHashBuilder();

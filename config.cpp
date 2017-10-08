@@ -182,7 +182,7 @@ bool saveConfig()
 /**
  * Start enabled plugins
  */
-void start_plugins()
+void startPlugins()
 {
   DEBUG_MSG(CORE, "starting plugins\n");
 #ifdef PLUGIN_ONEWIRE

@@ -166,26 +166,6 @@ void start_ota() {
 #endif
 }
 
-/**
- * Start enabled plugins
- */
-void start_plugins()
-{
-  DEBUG_MSG(CORE, "starting plugins\n");
-#ifdef PLUGIN_ONEWIRE
-  new OneWirePlugin(ONEWIRE_PIN);
-#endif
-#ifdef PLUGIN_DHT
-  new DHTPlugin(DHT_PIN, DHT_TYPE);
-#endif
-#ifdef PLUGIN_ANALOG
-  new AnalogPlugin();
-#endif
-#ifdef PLUGIN_WIFI
-  new WifiPlugin();
-#endif
-}
-
 #ifdef ESP8266
 // use the internal hardware buffer
 static void _u0_putc(char c) {
@@ -265,7 +245,7 @@ void setup()
   }
 
   // start plugins (before web server)
-  start_plugins();
+  startPlugins();
 
   // start web server if not in battery mode
   if (getOperationMode() == OPERATION_NORMAL) {
