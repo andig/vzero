@@ -119,4 +119,4 @@ bool loadConfig();
 bool saveConfig();
 
 int getResetReason(int core);
-String getResetReasonStr(int core);
+const char* getResetReasonStr(int core);

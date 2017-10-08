@@ -27,22 +27,6 @@
 #include "webserver.h"
 #include "plugins/Plugin.h"
 
-#ifdef PLUGIN_ONEWIRE
-#include "plugins/OneWirePlugin.h"
-#endif
-
-#ifdef PLUGIN_DHT
-#include "plugins/DHTPlugin.h"
-#endif
-
-#ifdef PLUGIN_ANALOG
-#include "plugins/AnalogPlugin.h"
-#endif
-
-#ifdef PLUGIN_WIFI
-#include "plugins/WifiPlugin.h"
-#endif
-
 #ifdef OTA_SERVER
 #include <ArduinoOTA.h>
 #endif

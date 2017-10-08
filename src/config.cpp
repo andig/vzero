@@ -206,7 +206,7 @@ int getResetReason(int core)
   return (int)g_resetInfo->reason;
 }
 
-String getResetReasonStr(int core)
+const char* getResetReasonStr(int core)
 {
   return ESP.getResetReason().c_str();
 }
@@ -218,7 +218,7 @@ int getResetReason(int core)
   return (int)rtc_get_reset_reason(core);
 }
 
-String getResetReasonStr(int core)
+const char* getResetReasonStr(int core)
 {
   switch (rtc_get_reset_reason(core))
   {
