@@ -1,7 +1,7 @@
 #include <FS.h>
 #include "OneWirePlugin.h"
 
-#if defined(ESP31B) || defined(ESP32)
+#ifdef ESP32
 #include <SPIFFS.h>
 #endif
 

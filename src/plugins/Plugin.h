@@ -6,7 +6,7 @@
   #include <ESP8266WiFi.h>
   #include <ESP8266HTTPClient.h>
 #endif
-#if defined(ESP31B) || defined(ESP32)
+#ifdef ESP32
   #include <WiFi.h>
   #include <HTTPClient.h>
 #endif

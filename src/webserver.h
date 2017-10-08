@@ -6,10 +6,6 @@
 
 #define SERVER "websrv"
 
-#ifdef BROWSER_EVENTS
-void browser_event(const char *event, const char *format, ...);
-#endif
-
 
 // timestamp to trigger restart on
 extern uint32_t g_restartTime;

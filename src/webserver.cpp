@@ -13,16 +13,12 @@
 #include "urlfunctions.h"
 #include "plugins/Plugin.h"
 
-#ifdef BROWSER_EVENTS
-#include <AsyncEventSource.h>
-#endif
-
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #endif
 
-#if defined(ESP31B) || defined(ESP32)
-#include <Wifi.h>
+#ifdef ESP32
+#include <WiFi.h>
 #include "SPIFFS.h"
 #endif
 
@@ -43,20 +39,6 @@ uint32_t g_lastAccessTime = 0;
 
 AsyncWebServer g_server(80);
 
-#ifdef BROWSER_EVENTS
-AsyncEventSource g_events("/events");
-
-void browser_event(const char *event, const char *format, ...) {
-  char buf[100] = {'\0'};
-  va_list args;
-
-  va_start(args, format);
-  vsnprintf(buf, 100, format, args);
-  va_end(args);
-
-  g_events.send(buf, event, millis(), 0);
-}
-#endif
 
 void requestRestart()
 {
@@ -218,13 +200,21 @@ void handleGetStatus(AsyncWebServerRequest *request)
 
   if (request->hasParam("initial")) {
     char buf[8];
-    sprintf(buf, "%06x", ESP.getChipId());
+    sprintf(buf, "%06x", getChipId());
+#ifdef ESP8266
+    json[F("cpu")] = "ESP8266";
+#endif
+#ifdef ESP32
+    json[F("cpu")] = "ESP32";
+#endif
     json[F("serial")] = buf;
     json[F("build")] = BUILD;
     json[F("ssid")] = g_ssid;
     // json[F("pass")] = g_pass;
     json[F("middleware")] = g_middleware;
+#ifndef ESP32
     json[F("flash")] = ESP.getFlashChipRealSize();
+#endif
     json[F("wifimode")] = (WiFi.getMode() & WIFI_STA) ? "Connected" : "Access Point";
     json[F("ip")] = getIP();
   }
@@ -233,7 +223,10 @@ void handleGetStatus(AsyncWebServerRequest *request)
   json[F("uptime")] = millis();
   json[F("heap")] = heap;
   json[F("minheap")] = g_minFreeHeap;
-  json[F("resetcode")] = g_resetInfo->reason;
+  json[F("resetcode")] = getResetReason(0);
+#ifdef ESP32
+  json[F("resetcode1")] = getResetReason(1);
+#endif
   // json[F("gpio")] = (uint32_t)(((GPI | GPO) & 0xFFFF) | ((GP16I & 0x01) << 16));
 
   // reset free heap
@@ -287,6 +280,7 @@ void registerPlugins()
 void handleWifiScan(AsyncWebServerRequest *request)
 {
   String json = "[";
+
   int n = WiFi.scanComplete();
   DEBUG_MSG(SERVER, "scanning wifi (%d)\n", n);
 
@@ -302,7 +296,9 @@ void handleWifiScan(AsyncWebServerRequest *request)
       // json += ",\"bssid\":\""+WiFi.BSSIDstr(i)+"\"";
       // json += ",\"channel\":"+String(WiFi.channel(i));
       json += ",\"secure\":" + String(WiFi.encryptionType(i));
+#ifndef ESP32
       json += ",\"hidden\":" + String(WiFi.isHidden(i) ? "true" : "false");
+#endif
       json += "}";
     }
     // save scan result memory
@@ -366,10 +362,6 @@ void webserver_start()
 
 #ifdef SPIFFS_EDITOR
   g_server.addHandler(new SPIFFSEditor());
-#endif
-
-#ifdef BROWSER_EVENTS
-  g_server.addHandler(&g_events);
 #endif
 
   // start server

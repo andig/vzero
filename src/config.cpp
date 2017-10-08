@@ -6,9 +6,10 @@
 #include <ESP8266WiFi.h>
 #endif
 
-#if defined(ESP31B) || defined(ESP32)
-#include <Wifi.h>
+#ifdef ESP32
+#include <WiFi.h>
 #include "SPIFFS.h"
+#include <rom/rtc.h>
 #endif
 
 #include <MD5Builder.h>
@@ -81,7 +82,7 @@ long getChipId()
 #ifdef ESP8266
   return ESP.getChipId();
 #endif
-#if defined(ESP31B) || defined(ESP32)
+#ifdef ESP32
   long chipId;
   ESP.getEfuseMac();
   return chipId;
@@ -198,3 +199,45 @@ void startPlugins()
   new WifiPlugin();
 #endif
 }
+
+#ifdef ESP8266
+int getResetReason(int core)
+{
+  return (int)g_resetInfo->reason;
+}
+
+String getResetReasonStr(int core)
+{
+  return ESP.getResetReason().c_str();
+}
+#endif
+
+#ifdef ESP32
+int getResetReason(int core)
+{
+  return (int)rtc_get_reset_reason(core);
+}
+
+String getResetReasonStr(int core)
+{
+  switch (rtc_get_reset_reason(core))
+  {
+    case 1  : return "Vbat power on reset";
+    case 3  : return "Software reset digital core";
+    case 4  : return "Legacy watch dog reset digital core";
+    case 5  : return "Deep Sleep reset digital core";
+    case 6  : return "Reset by SLC module, reset digital core";
+    case 7  : return "Timer Group0 Watch dog reset digital core";
+    case 8  : return "Timer Group1 Watch dog reset digital core";
+    case 9  : return "RTC Watch dog Reset digital core";
+    case 10 : return "Instrusion tested to reset CPU";
+    case 11 : return "Time Group reset CPU";
+    case 12 : return "Software reset CPU";
+    case 13 : return "RTC Watch dog Reset CPU";
+    case 14 : return "for APP CPU, reseted by PRO CPU";
+    case 15 : return "Reset when the vdd voltage is not stable";
+    case 16 : return "RTC Watch dog reset digital core and rtc module";
+    default : return "";
+  }
+}
+#endif

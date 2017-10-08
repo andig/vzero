@@ -6,17 +6,19 @@
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
-#ifdef OTA_SERVER
-  #include <ESP8266mDNS.h>
-#endif
 #endif
 
-#if defined(ESP31B) || defined(ESP32)
-#include <Wifi.h>
+#if defined(ESP32)
+#include <WiFi.h>
 #include <SPIFFS.h>
-#ifdef OTA_SERVER
-  #include <ESPmDNS.h>
 #endif
+
+#if defined(ESP8266) && defined(OTA_SERVER)
+#include <ESP8266mDNS.h>
+#endif
+
+#if defined(ESP32) && defined(OTA_SERVER)
+#include <ESPmDNS.h>
 #endif
 
 #include <FS.h>
@@ -69,7 +71,8 @@ operation_t getOperationMode()
 #ifndef DEEP_SLEEP
   return OPERATION_NORMAL;
 #endif
-  if (g_resetInfo->reason != REASON_DEEP_SLEEP_AWAKE)
+
+  if (getResetReason(0) != REASON_DEEP_SLEEP_AWAKE)
     return OPERATION_NORMAL;
   if ((WiFi.getMode() & WIFI_STA) == 0)
     return OPERATION_NORMAL;
@@ -166,7 +169,7 @@ void start_ota() {
 #endif
 }
 
-#ifdef ESP8266
+#ifndef ESP32
 // use the internal hardware buffer
 static void _u0_putc(char c) {
   while(((U0S >> USTXC) & 0x7F) == 0x7F);
@@ -181,19 +184,24 @@ void setup()
 {
   // hardware serial
   Serial.begin(115200);
+#ifndef ESP32
   ets_install_putc1((void *) &_u0_putc);
   system_set_os_print(1);
 
   g_resetInfo = ESP.getResetInfoPtr();
+#endif
+
   DEBUG_PLAIN("\n");
   DEBUG_MSG(CORE, "Booting...\n");
-  DEBUG_MSG(CORE, "Cause %d:    %s\n", g_resetInfo->reason, ESP.getResetReason().c_str());
+  DEBUG_MSG(CORE, "Cause %d:    %s\n", getResetReason(0), getResetReasonStr(0));
   DEBUG_MSG(CORE, "Chip ID:    %05X\n", getChipId());
 
+#ifndef ESP32
   // set hostname
   net_hostname += "-" + String(getChipId(), HEX);
   WiFi.hostname(net_hostname);
   DEBUG_MSG(CORE, "Hostname:   %s\n", net_hostname.c_str());
+#endif
 
   // initialize file system
   if (!SPIFFS.begin()) {
@@ -317,8 +325,13 @@ void loop()
       g_minFreeHeap = _freeHeap;
     _minFreeHeap = g_minFreeHeap;
 
+#ifdef ESP8266
     umm_info(NULL, 0);
     DEBUG_MSG(CORE, "heap min: %d (%d blk, %d tot)\n", g_minFreeHeap, ummHeapInfo.maxFreeContiguousBlocks * 8, _freeHeap);
+#endif
+#ifdef ESP32
+    DEBUG_MSG(CORE, "heap min: %d (%d tot)\n", g_minFreeHeap, _freeHeap);
+#endif
 
     // loop duration
     DEBUG_MSG(CORE, "loop %ums\n", _loopMillis);

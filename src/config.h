@@ -16,13 +16,10 @@ extern "C" {
  * Configuration
  */
 #define DEBUG
-#define BROWSER_EVENTS
 
 #ifdef DEBUG
 void debug_plain(const char *msg);
 void debug_message(const char *module, const char *format, ...);
-
-//browser_event("debug", __VA_ARGS__);
 
 #define DEBUG_PLAIN(msg) debug_plain(msg)
 #define DEBUG_MSG(module, format, ...) debug_message(module, format, ##__VA_ARGS__ )
@@ -34,7 +31,7 @@ void debug_message(const char *module, const char *format, ...);
 #ifdef ESP8266
 #define PANIC(...) panic()
 #endif
-#if defined(ESP31B) || defined(ESP32)
+#ifdef ESP32
 #define PANIC(...) abort()
 #endif
 
@@ -49,7 +46,6 @@ void debug_message(const char *module, const char *format, ...);
 #define PLUGIN_WIFI
 
 // #define SPIFFS_EDITOR
-#define BROWSER_EVENTS
 
 // settings
 #define ONEWIRE_PIN 14
@@ -78,6 +74,10 @@ void debug_message(const char *module, const char *format, ...);
 #define WIFI_CONNECT_TIMEOUT 10000
 #define OPTIMISTIC_YIELD_TIME 10000
 
+// ESP32 specifics
+#ifdef ESP32
+#define REASON_DEEP_SLEEP_AWAKE 5
+#endif
 
 /*
  * Variables
@@ -117,3 +117,6 @@ String getHash();
 
 bool loadConfig();
 bool saveConfig();
+
+int getResetReason(int core);
+String getResetReasonStr(int core);

@@ -1,6 +1,6 @@
 #include "S0Plugin.h"
 
-#if defined(ESP31B) || defined(ESP32)
+#ifdef ESP32
 #include <SPIFFS.h>
 #endif
 
