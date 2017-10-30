@@ -6,18 +6,12 @@
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
-#endif
-
-#if defined(ESP32)
-#include <WiFi.h>
-#include <SPIFFS.h>
-#endif
-
-#if defined(ESP8266) && defined(OTA_SERVER)
 #include <ESP8266mDNS.h>
 #endif
 
-#if defined(ESP32) && defined(OTA_SERVER)
+#ifdef ESP32
+#include <WiFi.h>
+#include <SPIFFS.h>
 #include <ESPmDNS.h>
 #endif
 
