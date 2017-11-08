@@ -56,7 +56,7 @@ script:
 
   - if [ "$ARDUINO" ]; then arduino --board esp8266com:esp8266:generic --save-prefs; fi
   - if [ "$ARDUINO" ]; then arduino --get-pref sketchbook.path; fi
-  - if [ "$ARDUINO" ]; then build_sketch $PWD/vzero.ino esp8266; fi
+  - if [ "$ARDUINO" ]; then build_sketch $PWD/src/vzero.ino esp8266; fi
 
   # platformio build
   - if [ "$PLATFORMIO" ]; then platformio ci --project-conf ./platformio.ini .; fi
