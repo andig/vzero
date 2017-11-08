@@ -35,7 +35,9 @@ install:
   - if [ "$ARDUINO" ]; then python get.py; fi
 
   # install platformio
-  - if [ "$PLATFORMIO" ]; then pip install -U platformio; fi
+#  - if [ "$PLATFORMIO" ]; then pip install -U platformio; fi
+# use pio 3.5 dev version
+  - if [ "$PLATFORMIO" ]; then pip install -U https://github.com/platformio/platformio-core/archive/develop.zip; fi
 
   # install arduino libraries
   - if [ "$ARDUINO" ]; then mkdir -p $HOME/Arduino/libraries; fi
