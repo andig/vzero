@@ -22,7 +22,7 @@
 unsigned long hex2int(const char *a, unsigned int len)
 {
   unsigned long val = 0;
-  for (int i=0; i<len; i++) {
+  for (unsigned int i = 0; i < len; i++) {
     if (a[i] <= 57)
       val += (a[i]-48)*(1<<(4*(len-1-i)));
     else

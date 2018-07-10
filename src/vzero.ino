@@ -239,8 +239,8 @@ void setup()
   }
 }
 
-long _minFreeHeap = 0;
-long _freeHeap = 0;
+uint32_t _minFreeHeap = 0;
+uint32_t _freeHeap = 0;
 long _tsMillis = 0;
 long _loopMillis = 0;
 
